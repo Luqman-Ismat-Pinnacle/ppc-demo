@@ -1118,6 +1118,13 @@ export default function DataManagementPage() {
         { key: 'isSubTask', header: 'Sub-Task', type: 'boolean', editable: true },
         { key: 'isSummary', header: 'Summary Task', type: 'boolean', editable: true },
         { key: 'outlineLevel', header: 'Outline Level', type: 'number', editable: true },
+        // MPP Parser Fields - for hierarchy and WBS structure
+        { key: 'outline_level', header: 'Outline Level (MPP)', type: 'number', editable: true, tooltip: 'Hierarchy level from MPP parser (1=project, 2=phase, 3=unit, 4=task)' },
+        { key: 'parent_id', header: 'Parent ID (MPP)', type: 'text', editable: true, tooltip: 'Parent task ID from MPP parser for hierarchy structure' },
+        { key: 'is_summary', header: 'Is Summary (MPP)', type: 'boolean', editable: true, tooltip: 'Whether this is a summary task (phase/unit) from MPP parser' },
+        { key: 'projectedHours', header: 'Projected Hours (MPP)', type: 'number', editable: true, tooltip: 'Calculated projected hours from MPP parser' },
+        { key: 'totalSlack', header: 'Total Slack (MPP)', type: 'number', editable: true, tooltip: 'Total slack/float from MPP parser' },
+        { key: 'assignedResource', header: 'Assigned Resource (MPP)', type: 'text', editable: true, tooltip: 'Assigned resource name from MPP parser' },
         // Predecessor
         { key: 'predecessorId', header: 'Predecessor', type: 'task', editable: true },
         { key: 'predecessorRelationship', header: 'Pred Rel', type: 'select', editable: true, selectOptions: ['FS', 'SS', 'FF', 'SF'] },
@@ -1194,6 +1201,12 @@ export default function DataManagementPage() {
         isSubTask: false,
         isSummary: false,
         outlineLevel: 0,
+        // MPP Parser Fields
+        outline_level: 0,
+        parent_id: null,
+        is_summary: false,
+        totalSlack: 0,
+        assignedResource: '',
         // Predecessor
         predecessorId: null,
         predecessorRelationship: null,
