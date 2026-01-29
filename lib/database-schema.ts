@@ -463,6 +463,15 @@ export interface DBTask extends TrackingFields {
   freeFloat: number;
   isCritical: boolean;
 
+  // MPP Parser Fields - for hierarchy and WBS structure
+  outline_level: number;              // Hierarchy level from MPP parser (1=project, 2=phase, 3=unit, 4=task)
+  parent_id: string | null;          // Parent task ID from MPP parser
+  is_summary: boolean;               // Whether this is a summary task (phase/unit)
+  projectedHours: number;            // Calculated projected hours
+  remainingHours: number;           // Calculated remaining hours
+  totalSlack: number;                // Total slack from MPP
+  comments: string;                  // Task comments/notes
+
   // Flags
   isMilestone: boolean;
   isSubTask: boolean;

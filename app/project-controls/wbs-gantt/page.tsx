@@ -442,7 +442,7 @@ export default function WBSGanttPage() {
             <br />
             {flatTasks.slice(0, 5).map((task, index) => (
               <div key={index} style={{ marginLeft: '20px', color: '#000' }}>
-                Task {index + 1}: {task.name} (Level: {task.outline_level}, Indent: {(task.outline_level - 1) * 24}px)
+                Task {index + 1}: {task.name} (Level: {task.outline_level}, Indent: {(task.outline_level - 1) * 20}px)
               </div>
             ))}
             <br />
@@ -603,7 +603,7 @@ export default function WBSGanttPage() {
 
                   // CRITICAL: Use exact same indentation logic as parser UI
                   const level = task.outline_level || 1;
-                  const indent = (level - 1) * 24; // Increased to 24px per level for better visibility
+                  const indent = (level - 1) * 20; // 20px per level - EXACTLY like parser UI
                   const isSummary = task.is_summary;
 
                   // Format dates and values

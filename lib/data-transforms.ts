@@ -1145,169 +1145,87 @@ export function buildWBSData(data: Partial<SampleData>): { items: any[] } {
       console.log('=== END MPP PARSER DEBUG ===');
 
       if (isUnifiedHierarchy) {
-        // Sort tasks by outline level to maintain proper hierarchy order
-        // The parser output array order is usually correct top-down, but we'll ensure proper ordering
-        allProjectTasks.sort((a, b) => {
-          // Primary sort: by outline level (parent before child)
-          if (a.outlineLevel !== b.outlineLevel) {
-            return (a.outlineLevel || 0) - (b.outlineLevel || 0);
-          }
-          // Secondary sort: by parent ID to group siblings
-          if (a.parentTaskId && b.parentTaskId && a.parentTaskId !== b.parentTaskId) {
-            return a.parentTaskId.localeCompare(b.parentTaskId);
-          }
-          // Tertiary sort: maintain original order as much as possible
-          return 0;
-        });
+        // EXACT PARSER UI LOGIC: Simple flat list with outline_level from MPP parser
+        // No artificial hierarchy creation - use exactly what MPP parser provides
+        
+        // Create project container
+        const projectItem: TransformWBSItem = {
+          id: `wbs-project-${projectId}`,
+          wbsCode: '1',
+          name: project.name || 'Imported Project',
+          type: 'project',
+          itemType: 'project',
+          startDate: project.startDate,
+          endDate: project.endDate,
+          daysRequired: 0,
+          percentComplete: 0,
+          baselineHours: 0,
+          actualHours: 0,
+          remainingHours: 0,
+          baselineCost: 0,
+          actualCost: 0,
+          remainingCost: 0,
+          assignedResourceId: null,
+          is_milestone: false,
+          isCritical: false,
+          _outlineLevel: 1, // Project level
+          isSummary: true,
+          _parentId: null,
+          children: []
+        };
 
-        // Flat List approach as per Parser UI - preserve the exact hierarchy structure
-        // Just map to WBS Items and push ALL to projectItem.children (no recursive tree)
-        const taskMap = new Map();
-        const rootTasks: TransformWBSItem[] = [];
-        const createdPhases = new Map();
-
-        // First pass: create all task items and identify potential phases
+        // Process tasks exactly like parser UI - flat list with proper outline_level
         allProjectTasks.forEach((t: any, idx: number) => {
           const taskId = t.id || t.taskId;
-
-          // Check if this task should be a phase based on naming patterns
-          const taskName = (t.name || t.taskName || '').toLowerCase();
-          const isLikelyPhase = 
-            taskName.includes('data gathering') ||
-            taskName.includes('staffing') ||
-            taskName.includes('development') ||
-            taskName.includes('strategy') ||
-            taskName.includes('execution') ||
-            taskName.includes('training') ||
-            taskName.includes('support') ||
-            taskName.includes('management') ||
-            taskName.includes('meeting') ||
-            taskName.includes('reporting') ||
-            taskName.includes('plan') ||
-            taskName.includes('onboarding') ||
-            taskName.includes('expenses') ||
-            taskName.includes('travel') ||
-            taskName.includes('follow up') ||
-            taskName.includes('project') ||
-            (taskName.length > 15 && !taskName.includes('asdf') && !taskName.includes('ddg') && !taskName.includes('30005'));
-
-          // Create Task Item with proper hierarchy fields
+          
+          // Calculate hours exactly like parser UI
+          const projectedHours = t.projectedHours || 0;
+          const actualHours = t.actualHours || 0;
+          const remainingHours = projectedHours - actualHours;
+          
+          // Create task item with ALL required properties from your schema
           const taskItem: TransformWBSItem = {
             id: `wbs-task-${taskId}`,
             wbsCode: t.wbs || t.wbsCode || `${idx + 1}`,
             name: t.name || t.taskName || `Task ${idx + 1}`,
-            type: isLikelyPhase ? 'phase' : 'task',
-            itemType: isLikelyPhase ? 'phase' : 'task',
-            startDate: t.startDate || t.baselineStartDate,
-            endDate: t.endDate || t.baselineEndDate,
-            daysRequired: (t.duration !== undefined ? t.duration : (t.daysRequired !== undefined ? t.daysRequired : 1)),
-            percentComplete: t.percentComplete ?? t.percent_complete ?? 0,
-            baselineHours: t.baselineHours || t.budgetHours || 0,
-            actualHours: t.actualHours || t.actual_hours || 0,
-            remainingHours: t.remainingHours ?? 0,
-            baselineCost: t.baselineCost || t.baseline_cost || 0,
-            actualCost: t.actualCost || t.actual_cost || 0,
-            assignedResourceId: t.assignedResourceId || t.employeeId || t.assigneeId,
+            type: t.is_milestone || t.isMilestone ? 'milestone' : 'task',
+            itemType: 'task',
+            startDate: t.startDate || null,
+            endDate: t.endDate || null,
+            daysRequired: t.daysRequired || 1,
+            percentComplete: t.percentComplete || 0,
+            baselineHours: t.baselineHours || 0,
+            actualHours: actualHours,
+            remainingHours: remainingHours,
+            baselineCost: t.baselineCost || 0,
+            actualCost: t.actualCost || 0,
+            assignedResourceId: t.assignedResourceId || null,
             is_milestone: t.is_milestone || t.isMilestone || false,
-            isCritical: t.is_critical || t.isCritical || false,
-            // CRITICAL: Store outlineLevel exactly as provided by MPP parser
-            _outlineLevel: isLikelyPhase ? 2 : 3, // Artificially create levels
-            isSummary: isLikelyPhase, // Mark likely phases as summary
-            // Store parent reference for hierarchy validation
-            _parentId: t.parentTaskId || t.parent_id || null,
-            children: [] // Will be populated in second pass
+            isCritical: t.isCritical || false,
+            
+            // EXACT PARSER UI FIELDS
+            _outlineLevel: t.outline_level || 1, // Use exact outline_level from MPP parser
+            isSummary: t.is_summary || false, // Use exact is_summary from MPP parser
+            _parentId: t.parent_id || null, // Use exact parent_id from MPP parser
+            children: [], // Flat list - no children
+            
+            // Additional required fields
+            projectedHours: projectedHours,
+            totalSlack: t.totalSlack || 0,
+            comments: t.comments || ''
           };
 
-          taskMap.set(taskId, taskItem);
-
-          // Rollup Project Level Stats immediately
+          // Add to project children (flat list like parser UI)
+          projectItem.children?.push(taskItem);
+          
+          // Rollup project stats
           projectItem.baselineHours = (projectItem.baselineHours || 0) + (taskItem.baselineHours || 0);
           projectItem.actualHours = (projectItem.actualHours || 0) + (taskItem.actualHours || 0);
           projectItem.baselineCost = (projectItem.baselineCost || 0) + (taskItem.baselineCost || 0);
           projectItem.actualCost = (projectItem.actualCost || 0) + (taskItem.actualCost || 0);
-
-          // If this is a likely phase, track it
-          if (isLikelyPhase) {
-            createdPhases.set(taskId, taskItem);
-          }
         });
 
-        // Second pass: organize tasks under phases
-        const phaselessTasks: TransformWBSItem[] = [];
-        
-        taskMap.forEach((task, taskId) => {
-          if (task.isSummary) {
-            // This is a phase, add to root
-            rootTasks.push(task);
-          } else {
-            // This is a regular task, try to find an appropriate phase
-            let assignedToPhase = false;
-            const taskName = task.name.toLowerCase();
-            
-            // Try to match task to a phase based on keywords
-            createdPhases.forEach((phase, phaseId) => {
-              const phaseName = phase.name.toLowerCase();
-              
-              // Simple keyword matching
-              if (
-                (taskName.includes('asdf') && phaseName.includes('asdf')) ||
-                (taskName.includes('ddg') && phaseName.includes('ddg')) ||
-                (taskName.includes('document') && phaseName.includes('document')) ||
-                (taskName.includes('tsf') && phaseName.includes('staffing')) ||
-                (taskName.includes('training') && phaseName.includes('training')) ||
-                (taskName.includes('meeting') && phaseName.includes('meeting')) ||
-                (taskName.includes('support') && phaseName.includes('support')) ||
-                (taskName.includes('plan') && phaseName.includes('plan')) ||
-                (taskName.includes('onboarding') && phaseName.includes('onboarding')) ||
-                (taskName.includes('expenses') && phaseName.includes('expenses')) ||
-                (taskName.includes('travel') && phaseName.includes('travel')) ||
-                (taskName.includes('follow') && phaseName.includes('follow')) ||
-                (taskName.includes('project') && phaseName.includes('project'))
-              ) {
-                phase.children.push(task);
-                assignedToPhase = true;
-              }
-            });
-            
-            if (!assignedToPhase) {
-              phaselessTasks.push(task);
-            }
-          }
-        });
-
-        // Add phaseless tasks to a generic phase or directly to project
-        if (phaselessTasks.length > 0) {
-          // Create a generic phase for remaining tasks
-          const genericPhase: TransformWBSItem = {
-            id: 'wbs-phase-generic',
-            wbsCode: '1.1',
-            name: 'Other Tasks',
-            type: 'phase',
-            itemType: 'phase',
-            startDate: null,
-            endDate: null,
-            daysRequired: 0,
-            percentComplete: 0,
-            baselineHours: 0,
-            actualHours: 0,
-            remainingHours: 0,
-            baselineCost: 0,
-            actualCost: 0,
-            assignedResourceId: null,
-            is_milestone: false,
-            isCritical: false,
-            _outlineLevel: 2,
-            isSummary: true,
-            _parentId: null,
-            children: phaselessTasks
-          };
-          rootTasks.push(genericPhase);
-        }
-
-        // Sort root tasks by outline level and add to project
-        rootTasks.sort((a, b) => (a._outlineLevel || 1) - (b._outlineLevel || 1));
-        projectItem.children = rootTasks;
-
+        // Calculate project percent complete
         if (projectItem.children && projectItem.children.length > 0) {
           const count = projectItem.children.length;
           projectItem.percentComplete = projectItem.children.reduce((sum, t) => sum + (t.percentComplete || 0), 0) / count;
