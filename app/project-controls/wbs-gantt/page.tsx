@@ -751,6 +751,16 @@ export default function WBSGanttPage() {
 
   return (
     <div className="page-panel full-height-page">
+      {flatRows.length === 0 && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', zIndex: 100 }}>
+          <div style={{ background: 'var(--bg-primary)', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
+            <h3>No WBS Data Available</h3>
+            <p>Please check the database connection and ensure the v_unified_wbs view has data.</p>
+            <p>Flat rows: {flatRows.length}</p>
+            <p>Hierarchy items: {wbsHierarchy.length}</p>
+          </div>
+        </div>
+      )}
       <div className="page-header">
         <div>
           <h1 className="page-title">WBS & Gantt Chart</h1>
