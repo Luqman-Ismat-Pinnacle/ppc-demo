@@ -1131,6 +1131,17 @@ export function buildWBSData(data: Partial<SampleData>): { items: any[] } {
         isSummary: t.isSummary,
         is_summary: t.is_summary
       })));
+      
+      // Also check for summary tasks
+      const summaryTasks = allProjectTasks.filter((t: any) => t.isSummary || t.is_summary);
+      console.log('Summary Tasks Count:', summaryTasks.length);
+      console.log('Summary Tasks:', summaryTasks.map(t => ({
+        id: t.id,
+        name: t.name,
+        outlineLevel: t.outlineLevel,
+        outline_level: t.outline_level
+      })));
+      
       console.log('=== END MPP PARSER DEBUG ===');
 
       if (isUnifiedHierarchy) {
