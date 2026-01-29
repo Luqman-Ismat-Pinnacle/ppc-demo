@@ -120,7 +120,9 @@ export default function WBSGanttPage() {
 
   // Use the v_unified_wbs data from fullData
   const flatWbsData = fullData.v_unified_wbs || [];
+  console.log('Flat WBS data:', flatWbsData);
   const wbsHierarchy = useMemo(() => buildHierarchyFromFlat(flatWbsData), [flatWbsData]);
+  console.log('WBS Hierarchy:', wbsHierarchy);
 
   // Use actual current date
   const today = useMemo(() => new Date(), []);

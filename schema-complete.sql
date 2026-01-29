@@ -1516,7 +1516,7 @@ WITH RECURSIVE node_hierarchy AS (
         name AS root_name,
         1 AS level,
         ARRAY[id::varchar] AS path,
-        ARRAY[name] AS path_names
+        ARRAY[name::varchar] AS path_names
     FROM hierarchy_nodes
     WHERE parent_id IS NULL
 

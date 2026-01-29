@@ -345,6 +345,15 @@ export function DataProvider({ children }: DataProviderProps) {
     }
   };
 
+  // Add this helper function
+  function convertPostgresArray(input: any): any[] {
+    if (Array.isArray(input)) return input;
+    if (typeof input === 'string' && input.startsWith('{') && input.endsWith('}')) {
+      return input.slice(1, -1).split(',').map(item => item.trim());
+    }
+    return [];
+  }
+
   /**
    * Memoized filtered data computation.
    * Applies hierarchy and date filters to the raw data.
@@ -675,6 +684,15 @@ export function DataProvider({ children }: DataProviderProps) {
           items: filterWBSItems(filtered.wbsData.items),
         };
       }
+    }
+
+    // Convert PostgreSQL arrays to JavaScript arrays in WBS data
+    if (filtered.wbsData) {
+      filtered.wbsData.items = filtered.wbsData.items.map(item => ({
+        ...item,
+        node_path: convertPostgresArray(item.node_path),
+        node_path_names: convertPostgresArray(item.node_path_names)
+      }));
     }
 
     // =========================================================================
