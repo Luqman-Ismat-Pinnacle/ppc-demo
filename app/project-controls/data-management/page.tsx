@@ -15,55 +15,13 @@
  * @module app/project-controls/data-management/page
  */
 
-import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import {
-  useReactTable,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  flexRender,
-  type ColumnDef,
-  type FilterFn,
-  type ColumnFiltersState,
-  type SortingState,
-  type ColumnSizingState,
-  type VisibilityState,
-} from '@tanstack/react-table';
-import { rankItem } from '@tanstack/match-sorter-utils';
+import React, { useState, useEffect } from 'react';
 import { useData } from '@/lib/data-context';
-import {
-  convertWorkdayEmployees,
-  convertWorkdayTasks,
-  parseCSVString,
-  convertProjectPlanJSON,
-  detectCSVDataType
-} from '@/lib/data-converter';
-import {
-  exportAllToExcel,
-  importFromExcel,
-} from '@/lib/excel-utils';
-import {
-  isSupabaseConfigured,
-  syncTable,
-  DATA_KEY_TO_TABLE,
-} from '@/lib/supabase';
-import {
-  type SortState,
-  type SortValue,
-  formatSortIndicator,
-  getNextSortState,
-  sortByState,
-} from '@/lib/sort-utils';
-import {
-  createSnapshot,
-  type SnapshotCreateInput
-} from '@/lib/snapshot-utils';
-import { useUser } from '@/lib/user-context';
-import DatePicker from '@/components/ui/DatePicker';
-import SearchableDropdown, { type DropdownOption } from '@/components/ui/SearchableDropdown';
-import EnhancedTooltip from '@/components/ui/EnhancedTooltip';
+import { DataTable } from './data-table';
+import { columns } from './columns';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 // ============================================================================
 // TYPES
@@ -498,10 +456,7 @@ const TableFilterHeader = ({
 // ============================================================================
 
 export default function DataManagementPage() {
-  const { filteredData, updateData, hierarchyFilter, dateFilter, isLoading: contextLoading, refreshData } = useData();
-  const data = filteredData;
-  const { user } = useUser();
-  const currentUserName = user?.name || user?.email || 'System';
+  const { data, updateData } = useData();
   const [selectedTable, setSelectedTable] = useState<string>('portfolios');
 
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error' | 'info' | null; message: string }>({ type: null, message: '' });
@@ -549,24 +504,23 @@ export default function DataManagementPage() {
   // Get options for a field type
   const getOptionsForType = useCallback((type: FieldType): DropdownOption[] => {
     switch (type) {
-      case 'employee': return (filteredData.employees || []).map((emp: any) => ({ id: emp.id || emp.employeeId, name: emp.name, secondary: emp.jobTitle || emp.email }));
-      case 'portfolio': return (filteredData.portfolios || []).map((p: any) => ({ id: p.id || p.portfolioId, name: p.name, secondary: p.manager }));
-      case 'customer': return (filteredData.customers || []).map((c: any) => ({ id: c.id || c.customerId, name: c.name }));
-      case 'site': return (filteredData.sites || []).map((s: any) => ({ id: s.id || s.siteId, name: s.name, secondary: s.location }));
-      case 'unit': return (filteredData.units || []).map((u: any) => ({ id: u.id || u.unitId, name: u.name, secondary: u.description }));
-      case 'project': return (filteredData.projects || []).map((p: any) => ({ id: p.id || p.projectId, name: p.name, secondary: p.manager }));
-      case 'phase': return (filteredData.phases || []).map((p: any) => ({ id: p.id || p.phaseId, name: p.name }));
-      case 'task': return (filteredData.tasks || []).map((t: any) => ({ id: t.id || t.taskId, name: t.taskName || t.name }));
+      case 'employee': return (data.employees || []).map((emp: any) => ({ id: emp.id || emp.employeeId, name: emp.name, secondary: emp.jobTitle || emp.email }));
+      case 'portfolio': return (data.portfolios || []).map((p: any) => ({ id: p.id || p.portfolioId, name: p.name, secondary: p.manager }));
+      case 'customer': return (data.customers || []).map((c: any) => ({ id: c.id || c.customerId, name: c.name }));
+      case 'site': return (data.sites || []).map((s: any) => ({ id: s.id || s.siteId, name: s.name, secondary: s.location }));
+      case 'unit': return (data.units || []).map((u: any) => ({ id: u.id || u.unitId, name: u.name, secondary: u.description }));
+      case 'project': return (data.projects || []).map((p: any) => ({ id: p.id || p.projectId, name: p.name, secondary: p.manager }));
+      case 'phase': return (data.phases || []).map((p: any) => ({ id: p.id || p.phaseId, name: p.name }));
+      case 'task': return (data.tasks || []).map((t: any) => ({ id: t.id || t.taskId, name: t.taskName || t.name }));
       case 'role':
         return ['Partner', 'Senior Manager', 'Project Manager', 'Project Lead', 'Technical Lead', 'Technical Manager', 'Technical Writer', 'QA/QC Auditor', 'Data Engineer', 'Data Scientist', 'CAD / Drafter', 'Field Technician', 'IDMS SME', 'Corrosion Engineer', 'Reliability Specialist', 'Senior Reliability Specialist', 'Senior Engineer', 'Process Engineer', 'Deployment Lead', 'Change Lead', 'Training Lead'].map(r => ({ id: r, name: r }));
-      case 'changeRequest': return (filteredData.changeRequests || []).map((cr: any) => ({ id: cr.id, name: cr.title || cr.id, secondary: cr.status }));
+      case 'changeRequest': return (data.changeRequests || []).map((cr: any) => ({ id: cr.id, name: cr.title || cr.id, secondary: cr.status }));
       default: return [];
     }
-  }, [filteredData]);
-
+  }, [data]);
 
   // Use context loading state
-  const isLoading = contextLoading;
+  const isLoading = false;
 
   // Close filter dropdown when clicking outside
   useEffect(() => {
@@ -624,18 +578,6 @@ export default function DataManagementPage() {
       return a.localeCompare(b);
     });
   }, []);
-
-  const changeLog = data.changeLog || [];
-  const changeControlSummary = data.changeControlSummary || { byProject: [], byMonth: [] };
-  useEffect(() => {
-    setSupabaseEnabled(isSupabaseConfigured());
-  }, []);
-
-  useEffect(() => {
-    if (currentUserName !== 'System' && snapshotCreatedBy === 'System') {
-      setSnapshotCreatedBy(currentUserName);
-    }
-  }, [currentUserName, snapshotCreatedBy]);
 
   // ============================================================================
   // LOOKUPS & HELPERS (Foundational logic used by sections)
@@ -708,7 +650,6 @@ export default function DataManagementPage() {
     if (!normalized) return null;
     return projectLookup.get(normalized) || null;
   }, [projectLookup]);
-
 
   // ============================================================================
   // DROPDOWN OPTIONS - Built from current data
@@ -964,13 +905,6 @@ export default function DataManagementPage() {
         { key: 'predecessorId', header: 'Predecessor', type: 'text', editable: true },
         { key: 'predecessorRelationship', header: 'Pred Rel', type: 'select', editable: true, selectOptions: ['FS', 'SS', 'FF', 'SF'] },
         { key: 'isActive', header: 'Active', type: 'boolean', editable: true },
-        // MPP Parser Fields - for hierarchy and WBS structure
-        { key: 'outline_level', header: 'Outline Level (MPP)', type: 'number', editable: true, tooltip: 'Hierarchy level from MPP parser (1=project, 2=phase, 3=unit, 4=task)' },
-        { key: 'parent_id', header: 'Parent ID (MPP)', type: 'text', editable: true, tooltip: 'Parent task ID from MPP parser for hierarchy structure' },
-        { key: 'is_summary', header: 'Is Summary (MPP)', type: 'boolean', editable: true, tooltip: 'Whether this is a summary task (phase/unit) from MPP parser' },
-        { key: 'projectedHours', header: 'Projected Hours (MPP)', type: 'number', editable: true, tooltip: 'Calculated projected hours from MPP parser' },
-        { key: 'totalSlack', header: 'Total Slack (MPP)', type: 'number', editable: true, tooltip: 'Total slack/float from MPP parser' },
-        { key: 'assignedResource', header: 'Assigned Resource (MPP)', type: 'text', editable: true, tooltip: 'Assigned resource name from MPP parser' },
       ],
       defaultNewRow: () => ({
         id: '', // Database will auto-generate
@@ -992,13 +926,6 @@ export default function DataManagementPage() {
         predecessorRelationship: null,
         comments: '',
         isActive: true,
-        // MPP Parser Fields
-        outline_level: 0,
-        parent_id: null,
-        is_summary: false,
-        projectedHours: 0,
-        totalSlack: 0,
-        assignedResource: '',
         createdAt: getCurrentTimestamp(),
         updatedAt: getCurrentTimestamp(),
       })
@@ -1032,13 +959,6 @@ export default function DataManagementPage() {
         { key: 'actualCost', header: 'Actual Cost', type: 'number', editable: true },
         { key: 'remainingCost', header: 'Remaining Cost', type: 'number', editable: false, autoCalculated: true },
         { key: 'isActive', header: 'Active', type: 'boolean', editable: true },
-        // MPP Parser Fields - for hierarchy and WBS structure
-        { key: 'outline_level', header: 'Outline Level (MPP)', type: 'number', editable: true, tooltip: 'Hierarchy level from MPP parser (1=project, 2=phase, 3=unit, 4=task)' },
-        { key: 'parent_id', header: 'Parent ID (MPP)', type: 'text', editable: true, tooltip: 'Parent task ID from MPP parser for hierarchy structure' },
-        { key: 'is_summary', header: 'Is Summary (MPP)', type: 'boolean', editable: true, tooltip: 'Whether this is a summary task (phase/unit) from MPP parser' },
-        { key: 'projectedHours', header: 'Projected Hours (MPP)', type: 'number', editable: true, tooltip: 'Calculated projected hours from MPP parser' },
-        { key: 'totalSlack', header: 'Total Slack (MPP)', type: 'number', editable: true, tooltip: 'Total slack/float from MPP parser' },
-        { key: 'assignedResource', header: 'Assigned Resource (MPP)', type: 'text', editable: true, tooltip: 'Assigned resource name from MPP parser' },
       ],
       defaultNewRow: () => ({
         id: '', // Database will auto-generate
@@ -1061,13 +981,6 @@ export default function DataManagementPage() {
         actualCost: 0,
         comments: '',
         isActive: true,
-        // MPP Parser Fields
-        outline_level: 0,
-        parent_id: null,
-        is_summary: false,
-        projectedHours: 0,
-        totalSlack: 0,
-        assignedResource: '',
         createdAt: getCurrentTimestamp(),
         updatedAt: getCurrentTimestamp(),
       })
@@ -1146,13 +1059,6 @@ export default function DataManagementPage() {
         { key: 'isSubTask', header: 'Sub-Task', type: 'boolean', editable: true },
         { key: 'isSummary', header: 'Summary Task', type: 'boolean', editable: true },
         { key: 'outlineLevel', header: 'Outline Level', type: 'number', editable: true },
-        // MPP Parser Fields - for hierarchy and WBS structure
-        { key: 'outline_level', header: 'Outline Level (MPP)', type: 'number', editable: true, tooltip: 'Hierarchy level from MPP parser (1=project, 2=phase, 3=unit, 4=task)' },
-        { key: 'parent_id', header: 'Parent ID (MPP)', type: 'text', editable: true, tooltip: 'Parent task ID from MPP parser for hierarchy structure' },
-        { key: 'is_summary', header: 'Is Summary (MPP)', type: 'boolean', editable: true, tooltip: 'Whether this is a summary task (phase/unit) from MPP parser' },
-        { key: 'projectedHours', header: 'Projected Hours (MPP)', type: 'number', editable: true, tooltip: 'Calculated projected hours from MPP parser' },
-        { key: 'totalSlack', header: 'Total Slack (MPP)', type: 'number', editable: true, tooltip: 'Total slack/float from MPP parser' },
-        { key: 'assignedResource', header: 'Assigned Resource (MPP)', type: 'text', editable: true, tooltip: 'Assigned resource name from MPP parser' },
         // Predecessor
         { key: 'predecessorId', header: 'Predecessor', type: 'task', editable: true },
         { key: 'predecessorRelationship', header: 'Pred Rel', type: 'select', editable: true, selectOptions: ['FS', 'SS', 'FF', 'SF'] },
@@ -1229,12 +1135,6 @@ export default function DataManagementPage() {
         isSubTask: false,
         isSummary: false,
         outlineLevel: 0,
-        // MPP Parser Fields
-        outline_level: 0,
-        parent_id: null,
-        is_summary: false,
-        totalSlack: 0,
-        assignedResource: '',
         // Predecessor
         predecessorId: null,
         predecessorRelationship: null,
@@ -1333,7 +1233,7 @@ export default function DataManagementPage() {
         qty: 0,
         qtyType: 'produced',
         notes: '',
-        enteredBy: currentUserName,
+        enteredBy: 'System',
         createdAt: getCurrentTimestamp(),
         updatedAt: getCurrentTimestamp(),
       }),
@@ -1682,7 +1582,7 @@ export default function DataManagementPage() {
         snapshotDate: new Date().toISOString().split('T')[0],
         snapshotType: 'baseline',
         versionName: '',
-        createdBy: currentUserName,
+        createdBy: 'System',
         approvedBy: null,
         approvedAt: null,
         notes: '',
@@ -1722,7 +1622,7 @@ export default function DataManagementPage() {
         entityId: '',
         approvalType: 'Baseline Snapshot',
         status: 'pending',
-        approvedBy: currentUserName,
+        approvedBy: 'System',
         approvedAt: new Date().toISOString().split('T')[0],
         notes: '',
         createdAt: getCurrentTimestamp(),
@@ -1754,7 +1654,7 @@ export default function DataManagementPage() {
         description: '',
         category: 'scope',
         status: 'submitted',
-        submittedBy: currentUserName,
+        submittedBy: 'System',
         submittedAt: new Date().toISOString().split('T')[0],
         approvedBy: null,
         approvedAt: null,
@@ -1990,13 +1890,13 @@ export default function DataManagementPage() {
         projectId: null,
         fileSize: 0,
         uploadedAt: new Date().toISOString(),
-        uploadedBy: currentUserName,
+        uploadedBy: 'System',
         isActive: true,
         createdAt: getCurrentTimestamp(),
         updatedAt: getCurrentTimestamp(),
       })
     },
-  ], [currentUserName]);
+  ], []);
 
   // ============================================================================
   // CORE TABLE HELPERS (Ordered after sections)
@@ -2153,7 +2053,6 @@ export default function DataManagementPage() {
     return processed;
   }, [getCurrentSection, data, editedRows, newRows, changeRequestStatusFilter, changeRequestFromDate, changeRequestToDate, showInactive, customColumnFilters, tableSortStates, getSortValueForField]);
 
-
   // Clean data for Supabase - simple 1:1 mapping with minimal transformations
   const cleanDataForSupabase = useCallback((records: Record<string, any>[]): Record<string, unknown>[] => {
     const nullLike = new Set(['', '-', 'null', 'undefined', 'n/a']);
@@ -2287,7 +2186,7 @@ export default function DataManagementPage() {
         snapshotDate: effectiveDate,
         snapshotType,
         versionName,
-        createdBy: snapshotCreatedBy || currentUserName || 'System',
+        createdBy: snapshotCreatedBy || 'System',
         notes: snapshotNotes || null,
         scope: snapshotScope,
         scopeId: snapshotScopeId || null,
@@ -2302,7 +2201,7 @@ export default function DataManagementPage() {
       return;
     }
 
-  }, [getCurrentSection, data, snapshotDate, snapshotVersionName, snapshotCreatedBy, snapshotNotes, currentUserName, snapshotType, snapshotScope, snapshotScopeId]);
+  }, [getCurrentSection, data, snapshotDate, snapshotVersionName, snapshotCreatedBy, snapshotNotes, snapshotType, snapshotScope, snapshotScopeId]);
 
   const handleLockSnapshots = useCallback(() => {
     const section = getCurrentSection();
@@ -3629,15 +3528,15 @@ export default function DataManagementPage() {
                     <table style={{ width: '100%', fontSize: '0.7rem' }}>
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '4px' }}>MPP Field</th>
-                          <th style={{ textAlign: 'left', padding: '4px' }}>→ Database Field</th>
+                          <th style={{ textAlign: 'left' }}>MPP Field</th>
+                          <th style={{ textAlign: 'left' }}>→ Database Field</th>
                         </tr>
                       </thead>
                       <tbody>
                         {Object.entries(mppAnalysis.analysis.fieldMapping || {}).map(([mppField, dbField]) => (
                           <tr key={mppField}>
-                            <td style={{ padding: '4px' }}>{mppField}</td>
-                            <td style={{ padding: '4px', color: 'var(--pinnacle-teal)' }}>{String(dbField)}</td>
+                            <td>{mppField}</td>
+                            <td style={{ textAlign: 'left', color: 'var(--pinnacle-teal)' }}>{String(dbField)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -3765,7 +3664,7 @@ export default function DataManagementPage() {
               {isLoading ? '...' : 'Refresh'}
             </button>
           )}
-          <button className="btn btn-secondary btn-sm" onClick={() => exportAllToExcel(data, hierarchyFilter, dateFilter)}>Export</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => exportAllToExcel(data, null, null)}>Export</button>
           <input ref={fileInputRef} type="file" accept=".csv,.json,.xlsx,.xls,.mpp" onChange={handleFileUpload} style={{ display: 'none' }} />
           <button className="btn btn-primary btn-sm" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
             {isImporting ? 'Importing...' : 'Import'}
@@ -3814,31 +3713,3 @@ export default function DataManagementPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

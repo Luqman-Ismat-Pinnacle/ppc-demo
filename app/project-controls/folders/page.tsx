@@ -69,6 +69,7 @@ export default function DocumentsPage() {
         .list('mpp', { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
 
       if (error) {
+        console.error('Error loading files:', error);
         return;
       }
 
@@ -87,7 +88,7 @@ export default function DocumentsPage() {
         setUploadedFiles(files);
       }
     } catch (err) {
-      // Silently handle loading errors
+      console.error('Error loading stored files:', err);
     }
   };
 
@@ -245,6 +246,7 @@ export default function DocumentsPage() {
         MPP_PARSER_URL = `https://${MPP_PARSER_URL}`;
       }
 
+      console.log('Hitting MPP Parser at:', `${MPP_PARSER_URL}/parse`);
       addLog('info', `[Network] Service URL: ${MPP_PARSER_URL}/parse`);
 
       const parseResponse = await fetch(`${MPP_PARSER_URL}/parse`, {

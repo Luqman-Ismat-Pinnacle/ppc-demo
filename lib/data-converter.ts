@@ -381,20 +381,12 @@ export function convertProjectPlanJSON(data: Record<string, unknown>, projectIdO
         assignedResource: t.resource_names || '',
         assignedResourceId: null,
 
-        // Recursion support - CRITICAL: Preserve exact hierarchy from MPP parser
+        // Recursion support
         parentTaskId: t.parent_id || null,
-        outlineLevel: t.outline_level || 0, // Use outline_level directly from MPP parser
-        outline_level: t.outline_level || 0, // Keep both for compatibility
+        outlineLevel: t.outline_level || 0,
         isSummary: t.is_summary || false,
         wbs: t.wbs || '',
         isSubTask: !!t.parent_id,
-
-        // NEW MPP Parser Fields - map from MPP parser output
-        parent_id: t.parent_id || null,        // Direct mapping from MPP parser
-        is_summary: t.is_summary || false,      // Direct mapping from MPP parser
-        totalSlack: t.total_slack || 0,         // Map total_slack from MPP parser
-        assignedResource: t.resource_names || '', // Map resource_names from MPP parser
-        remainingHours: (t.baseline_work || 0) - (t.actual_work || 0), // Calculate remaining hours
 
         // Standard fields
         status: t.status || (t.percent_complete === 100 ? 'Completed' : (t.percent_complete > 0 ? 'In Progress' : 'Not Started')),

@@ -1116,116 +1116,62 @@ export function buildWBSData(data: Partial<SampleData>): { items: any[] } {
       const allProjectTasks = maps.tasksByProject.get(projectId) || [];
       const isUnifiedHierarchy = allProjectTasks.some((t: any) => t.outlineLevel > 0 || t.parentTaskId);
 
-      // DEBUG: Log the raw MPP parser data
-      console.log('=== MPP PARSER DATA DEBUG ===');
-      console.log('Project ID:', projectId);
-      console.log('All Project Tasks Count:', allProjectTasks.length);
-      console.log('Is Unified Hierarchy:', isUnifiedHierarchy);
-      console.log('Sample Raw Tasks:', allProjectTasks.slice(0, 10).map(t => ({
-        id: t.id,
-        name: t.name,
-        outlineLevel: t.outlineLevel,
-        outline_level: t.outline_level,
-        parentTaskId: t.parentTaskId,
-        parent_id: t.parent_id,
-        isSummary: t.isSummary,
-        is_summary: t.is_summary
-      })));
-      
-      // Also check for summary tasks
-      const summaryTasks = allProjectTasks.filter((t: any) => t.isSummary || t.is_summary);
-      console.log('Summary Tasks Count:', summaryTasks.length);
-      console.log('Summary Tasks:', summaryTasks.map(t => ({
-        id: t.id,
-        name: t.name,
-        outlineLevel: t.outlineLevel,
-        outline_level: t.outline_level
-      })));
-      
-      console.log('=== END MPP PARSER DEBUG ===');
-
       if (isUnifiedHierarchy) {
-        // EXACT PARSER UI LOGIC: Simple flat list with outline_level from MPP parser
-        // No artificial hierarchy creation - use exactly what MPP parser provides
-        
-        // Create project container
-        const projectItem: TransformWBSItem = {
-          id: `wbs-project-${projectId}`,
-          wbsCode: '1',
-          name: project.name || 'Imported Project',
-          type: 'project',
-          itemType: 'project',
-          startDate: project.startDate,
-          endDate: project.endDate,
-          daysRequired: 0,
-          percentComplete: 0,
-          baselineHours: 0,
-          actualHours: 0,
-          remainingHours: 0,
-          baselineCost: 0,
-          actualCost: 0,
-          remainingCost: 0,
-          assignedResourceId: null,
-          is_milestone: false,
-          isCritical: false,
-          _outlineLevel: 1, // Project level
-          isSummary: true,
-          _parentId: null,
-          children: []
-        };
+        // Sort tasks by outline level / sequence (assuming API returns them in order, or we sort by ID/WBS)
+        // The parser output array order is usually correct top-down. 
+        // We'll trust the array order or sort by ID/WBS if present.
+        allProjectTasks.sort((a, b) => {
+          // Try to sort by WBS code (1, 1.1, 2)
+          // If missing, fallback to ID (TSK_TIMESTAMP_ID)
+          if (a.wbsCode && b.wbsCode) return a.wbsCode.localeCompare(b.wbsCode, undefined, { numeric: true });
+          if (a.outlineLevel !== b.outlineLevel) {
+            // Actually outlineLevel isn't sorting key - it's depth.
+            // We should rely on parser output order which is usually sequence.
+            // If Supabase query didn't preserve order, we might need 'created_at' or 'id'.
+            return 0;
+          }
+          return 0;
+        });
 
-        // Process tasks exactly like parser UI - flat list with proper outline_level
+        // Flat List approach as per Parser UI
+        // Just map to WBS Items and push ALL to projectItem.children (no recursive tree)
         allProjectTasks.forEach((t: any, idx: number) => {
           const taskId = t.id || t.taskId;
-          
-          // Calculate hours exactly like parser UI
-          const projectedHours = t.projectedHours || 0;
-          const actualHours = t.actualHours || 0;
-          const remainingHours = projectedHours - actualHours;
-          
-          // Create task item with ALL required properties from your schema
+
+          // Create Task Item
           const taskItem: TransformWBSItem = {
             id: `wbs-task-${taskId}`,
             wbsCode: t.wbs || t.wbsCode || `${idx + 1}`,
             name: t.name || t.taskName || `Task ${idx + 1}`,
-            type: t.is_milestone || t.isMilestone ? 'milestone' : 'task',
-            itemType: 'task',
-            startDate: t.startDate || null,
-            endDate: t.endDate || null,
-            daysRequired: t.daysRequired || 1,
-            percentComplete: t.percentComplete || 0,
-            baselineHours: t.baselineHours || 0,
-            actualHours: actualHours,
-            remainingHours: remainingHours,
-            baselineCost: t.baselineCost || 0,
-            actualCost: t.actualCost || 0,
-            assignedResourceId: t.assignedResourceId || null,
+            type: t.is_milestone || t.isMilestone ? 'milestone' : (t.outlineLevel === 1 ? 'phase' : 'task'), // Mimic phase/task typing if needed, or just 'task'
+            itemType: t.is_milestone || t.isMilestone ? 'milestone' : 'task',
+            startDate: t.startDate || t.baselineStartDate,
+            endDate: t.endDate || t.baselineEndDate,
+            daysRequired: (t.duration !== undefined ? t.duration : (t.daysRequired !== undefined ? t.daysRequired : 1)),
+            percentComplete: t.percentComplete ?? t.percent_complete ?? 0,
+            baselineHours: t.baselineHours || t.budgetHours || 0,
+            actualHours: t.actualHours || t.actual_hours || 0,
+            remainingHours: t.remainingHours ?? 0,
+            baselineCost: t.baselineCost || t.baseline_cost || 0,
+            actualCost: t.actualCost || t.actual_cost || 0,
+            assignedResourceId: t.assignedResourceId || t.employeeId || t.assigneeId,
             is_milestone: t.is_milestone || t.isMilestone || false,
-            isCritical: t.isCritical || false,
-            
-            // EXACT PARSER UI FIELDS
-            _outlineLevel: t.outline_level || 1, // Use exact outline_level from MPP parser
-            isSummary: t.is_summary || false, // Use exact is_summary from MPP parser
-            _parentId: t.parent_id || null, // Use exact parent_id from MPP parser
-            children: [], // Flat list - no children
-            
-            // Additional required fields
-            projectedHours: projectedHours,
-            totalSlack: t.totalSlack || 0,
-            comments: t.comments || ''
+            isCritical: t.is_critical || t.isCritical || false,
+            // Store outlineLevel for UI indentation
+            _outlineLevel: t.outlineLevel || 1,
+            isSummary: t.isSummary || t.is_summary || false,
+            children: [] // No children in flat list approach
           };
 
-          // Add to project children (flat list like parser UI)
-          projectItem.children?.push(taskItem);
-          
-          // Rollup project stats
+          // Rollup Project Level Stats immediately
           projectItem.baselineHours = (projectItem.baselineHours || 0) + (taskItem.baselineHours || 0);
           projectItem.actualHours = (projectItem.actualHours || 0) + (taskItem.actualHours || 0);
           projectItem.baselineCost = (projectItem.baselineCost || 0) + (taskItem.baselineCost || 0);
           projectItem.actualCost = (projectItem.actualCost || 0) + (taskItem.actualCost || 0);
+
+          projectItem.children?.push(taskItem);
         });
 
-        // Calculate project percent complete
         if (projectItem.children && projectItem.children.length > 0) {
           const count = projectItem.children.length;
           projectItem.percentComplete = projectItem.children.reduce((sum, t) => sum + (t.percentComplete || 0), 0) / count;
