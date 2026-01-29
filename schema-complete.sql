@@ -1552,7 +1552,7 @@ SELECT
     t.name AS task_name,
     t.wbs_code AS task_wbs_code
 FROM node_hierarchy nh
-LEFT JOIN projects p ON nh.node_type = 'unit' AND p.unit_id = nh.id
+LEFT JOIN projects p ON p.unit_id = nh.id
 LEFT JOIN phases ph ON ph.project_id = p.id
 LEFT JOIN tasks t ON t.phase_id = ph.id;
 
