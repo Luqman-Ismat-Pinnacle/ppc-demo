@@ -115,7 +115,7 @@ export default function WBSGanttPage() {
                   const indent = (level - 1) * 20; // 20px per level
                   const isSummary = task.is_summary;
                   const rowClass = isSummary ? 'bg-slate-800/30 font-semibold text-slate-200' : 'text-slate-400 hover:bg-slate-800/50';
-                  const nameStyle = `padding-left: ${indent}px;`;
+                  const nameStyle = { paddingLeft: `${indent}px` };
 
                   // Truncate dates to YYYY-MM-DD
                   const start = task.startDate ? task.startDate.split('T')[0] : '';
