@@ -964,6 +964,13 @@ export default function DataManagementPage() {
         { key: 'predecessorId', header: 'Predecessor', type: 'text', editable: true },
         { key: 'predecessorRelationship', header: 'Pred Rel', type: 'select', editable: true, selectOptions: ['FS', 'SS', 'FF', 'SF'] },
         { key: 'isActive', header: 'Active', type: 'boolean', editable: true },
+        // MPP Parser Fields - for hierarchy and WBS structure
+        { key: 'outline_level', header: 'Outline Level (MPP)', type: 'number', editable: true, tooltip: 'Hierarchy level from MPP parser (1=project, 2=phase, 3=unit, 4=task)' },
+        { key: 'parent_id', header: 'Parent ID (MPP)', type: 'text', editable: true, tooltip: 'Parent task ID from MPP parser for hierarchy structure' },
+        { key: 'is_summary', header: 'Is Summary (MPP)', type: 'boolean', editable: true, tooltip: 'Whether this is a summary task (phase/unit) from MPP parser' },
+        { key: 'projectedHours', header: 'Projected Hours (MPP)', type: 'number', editable: true, tooltip: 'Calculated projected hours from MPP parser' },
+        { key: 'totalSlack', header: 'Total Slack (MPP)', type: 'number', editable: true, tooltip: 'Total slack/float from MPP parser' },
+        { key: 'assignedResource', header: 'Assigned Resource (MPP)', type: 'text', editable: true, tooltip: 'Assigned resource name from MPP parser' },
       ],
       defaultNewRow: () => ({
         id: '', // Database will auto-generate
@@ -985,6 +992,13 @@ export default function DataManagementPage() {
         predecessorRelationship: null,
         comments: '',
         isActive: true,
+        // MPP Parser Fields
+        outline_level: 0,
+        parent_id: null,
+        is_summary: false,
+        projectedHours: 0,
+        totalSlack: 0,
+        assignedResource: '',
         createdAt: getCurrentTimestamp(),
         updatedAt: getCurrentTimestamp(),
       })
@@ -1018,6 +1032,13 @@ export default function DataManagementPage() {
         { key: 'actualCost', header: 'Actual Cost', type: 'number', editable: true },
         { key: 'remainingCost', header: 'Remaining Cost', type: 'number', editable: false, autoCalculated: true },
         { key: 'isActive', header: 'Active', type: 'boolean', editable: true },
+        // MPP Parser Fields - for hierarchy and WBS structure
+        { key: 'outline_level', header: 'Outline Level (MPP)', type: 'number', editable: true, tooltip: 'Hierarchy level from MPP parser (1=project, 2=phase, 3=unit, 4=task)' },
+        { key: 'parent_id', header: 'Parent ID (MPP)', type: 'text', editable: true, tooltip: 'Parent task ID from MPP parser for hierarchy structure' },
+        { key: 'is_summary', header: 'Is Summary (MPP)', type: 'boolean', editable: true, tooltip: 'Whether this is a summary task (phase/unit) from MPP parser' },
+        { key: 'projectedHours', header: 'Projected Hours (MPP)', type: 'number', editable: true, tooltip: 'Calculated projected hours from MPP parser' },
+        { key: 'totalSlack', header: 'Total Slack (MPP)', type: 'number', editable: true, tooltip: 'Total slack/float from MPP parser' },
+        { key: 'assignedResource', header: 'Assigned Resource (MPP)', type: 'text', editable: true, tooltip: 'Assigned resource name from MPP parser' },
       ],
       defaultNewRow: () => ({
         id: '', // Database will auto-generate
@@ -1040,6 +1061,13 @@ export default function DataManagementPage() {
         actualCost: 0,
         comments: '',
         isActive: true,
+        // MPP Parser Fields
+        outline_level: 0,
+        parent_id: null,
+        is_summary: false,
+        projectedHours: 0,
+        totalSlack: 0,
+        assignedResource: '',
         createdAt: getCurrentTimestamp(),
         updatedAt: getCurrentTimestamp(),
       })
