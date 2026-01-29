@@ -451,6 +451,34 @@ export default function WBSGanttPage() {
             <div style={{ marginLeft: '20px', fontSize: '10px', maxHeight: '200px', overflow: 'auto' }}>
               {data.wbsData?.items?.[0] ? JSON.stringify(data.wbsData.items[0], null, 2) : 'No data'}
             </div>
+            <br />
+            <strong>MPP Parser Raw Data:</strong>
+            <br />
+            <div style={{ marginLeft: '20px', fontSize: '10px', maxHeight: '300px', overflow: 'auto' }}>
+              {(() => {
+                // Try to get raw MPP data from the data context
+                const rawTasks = fullData.tasks || [];
+                const projectTasks = rawTasks.filter((task: any) => 
+                  task.projectId === 'PRJ_MPP_1769645081486' || 
+                  task.projectId === (data.wbsData?.items?.[0]?.id?.replace('wbs-project-', ''))
+                );
+                
+                if (projectTasks.length === 0) {
+                  return 'No raw MPP data available in context';
+                }
+                
+                return JSON.stringify(projectTasks.slice(0, 10).map((t: any) => ({
+                  id: t.id,
+                  name: t.name,
+                  outlineLevel: t.outlineLevel,
+                  outline_level: t.outline_level,
+                  parentTaskId: t.parentTaskId,
+                  parent_id: t.parent_id,
+                  isSummary: t.isSummary,
+                  is_summary: t.is_summary
+                })), null, 2);
+              })()}
+            </div>
           </div>
         </div>
       </div>
