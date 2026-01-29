@@ -1554,7 +1554,29 @@ SELECT
 FROM node_hierarchy nh
 LEFT JOIN projects p ON p.unit_id = nh.id
 LEFT JOIN phases ph ON ph.project_id = p.id
-LEFT JOIN tasks t ON t.phase_id = ph.id;
+LEFT JOIN tasks t ON t.phase_id = ph.id
+
+UNION ALL
+
+-- Add projects that are not in any hierarchy
+SELECT
+    NULL AS portfolio_id,
+    NULL AS portfolio_name,
+    NULL AS node_id,
+    NULL AS node_name,
+    NULL AS node_type,
+    NULL AS node_level,
+    NULL AS node_path,
+    NULL AS node_path_names,
+    p.id AS project_id,
+    p.name AS project_name,
+    NULL AS phase_id,
+    NULL AS phase_name,
+    NULL AS task_id,
+    NULL AS task_name,
+    NULL AS task_wbs_code
+FROM projects p
+WHERE p.unit_id IS NULL;
 
 -- View: v_project_financials
 
