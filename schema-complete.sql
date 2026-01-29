@@ -937,7 +937,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_generate_portfolio_ids ON portfolios;
-CREATE TRIGGER trigger_auto_generate_portfolio_ids
+CREATE OR REPLACE TRIGGER trigger_auto_generate_portfolio_ids
   BEFORE INSERT ON portfolios
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_portfolio_ids();
@@ -957,7 +957,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_generate_customer_ids ON customers;
-CREATE TRIGGER trigger_auto_generate_customer_ids
+CREATE OR REPLACE TRIGGER trigger_auto_generate_customer_ids
   BEFORE INSERT ON customers
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_customer_ids();
@@ -977,7 +977,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_generate_site_ids ON sites;
-CREATE TRIGGER trigger_auto_generate_site_ids
+CREATE OR REPLACE TRIGGER trigger_auto_generate_site_ids
   BEFORE INSERT ON sites
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_site_ids();
@@ -997,7 +997,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_generate_unit_ids ON units;
-CREATE TRIGGER trigger_auto_generate_unit_ids
+CREATE OR REPLACE TRIGGER trigger_auto_generate_unit_ids
   BEFORE INSERT ON units
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_unit_ids();
@@ -1017,7 +1017,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_generate_project_ids ON projects;
-CREATE TRIGGER trigger_auto_generate_project_ids
+CREATE OR REPLACE TRIGGER trigger_auto_generate_project_ids
   BEFORE INSERT ON projects
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_project_ids();
@@ -1037,7 +1037,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_generate_phase_ids ON phases;
-CREATE TRIGGER trigger_auto_generate_phase_ids
+CREATE OR REPLACE TRIGGER trigger_auto_generate_phase_ids
   BEFORE INSERT ON phases
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_phase_ids();
@@ -1061,7 +1061,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_generate_task_ids ON tasks;
-CREATE TRIGGER trigger_auto_generate_task_ids
+CREATE OR REPLACE TRIGGER trigger_auto_generate_task_ids
   BEFORE INSERT ON tasks
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_task_ids();
@@ -1081,7 +1081,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_generate_subproject_ids ON subprojects;
-CREATE TRIGGER trigger_auto_generate_subproject_ids
+CREATE OR REPLACE TRIGGER trigger_auto_generate_subproject_ids
   BEFORE INSERT ON subprojects
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_subproject_ids();
@@ -1101,7 +1101,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_generate_hour_entry_ids ON hour_entries;
-CREATE TRIGGER trigger_auto_generate_hour_entry_ids
+CREATE OR REPLACE TRIGGER trigger_auto_generate_hour_entry_ids
   BEFORE INSERT ON hour_entries
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_hour_entry_ids();
@@ -1121,7 +1121,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_generate_milestone_ids ON milestones;
-CREATE TRIGGER trigger_auto_generate_milestone_ids
+CREATE OR REPLACE TRIGGER trigger_auto_generate_milestone_ids
   BEFORE INSERT ON milestones
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_milestone_ids();
@@ -1141,7 +1141,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_generate_deliverable_ids ON deliverables;
-CREATE TRIGGER trigger_auto_generate_deliverable_ids
+CREATE OR REPLACE TRIGGER trigger_auto_generate_deliverable_ids
   BEFORE INSERT ON deliverables
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_deliverable_ids();
@@ -1161,7 +1161,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_generate_qc_task_ids ON qc_tasks;
-CREATE TRIGGER trigger_auto_generate_qc_task_ids
+CREATE OR REPLACE TRIGGER trigger_auto_generate_qc_task_ids
   BEFORE INSERT ON qc_tasks
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_qc_task_ids();
@@ -1181,7 +1181,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_calculate_portfolio_fields ON portfolios;
-CREATE TRIGGER trigger_auto_calculate_portfolio_fields
+CREATE OR REPLACE TRIGGER trigger_auto_calculate_portfolio_fields
   BEFORE INSERT OR UPDATE ON portfolios
   FOR EACH ROW
   EXECUTE FUNCTION auto_calculate_portfolio_fields();
@@ -1197,7 +1197,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_calculate_customer_fields ON customers;
-CREATE TRIGGER trigger_auto_calculate_customer_fields
+CREATE OR REPLACE TRIGGER trigger_auto_calculate_customer_fields
   BEFORE INSERT OR UPDATE ON customers
   FOR EACH ROW
   EXECUTE FUNCTION auto_calculate_customer_fields();
@@ -1213,7 +1213,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_calculate_site_fields ON sites;
-CREATE TRIGGER trigger_auto_calculate_site_fields
+CREATE OR REPLACE TRIGGER trigger_auto_calculate_site_fields
   BEFORE INSERT OR UPDATE ON sites
   FOR EACH ROW
   EXECUTE FUNCTION auto_calculate_site_fields();
@@ -1229,7 +1229,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_calculate_unit_fields ON units;
-CREATE TRIGGER trigger_auto_calculate_unit_fields
+CREATE OR REPLACE TRIGGER trigger_auto_calculate_unit_fields
   BEFORE INSERT OR UPDATE ON units
   FOR EACH ROW
   EXECUTE FUNCTION auto_calculate_unit_fields();
@@ -1269,7 +1269,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_calculate_project_fields ON projects;
-CREATE TRIGGER trigger_auto_calculate_project_fields
+CREATE OR REPLACE TRIGGER trigger_auto_calculate_project_fields
   BEFORE INSERT OR UPDATE ON projects
   FOR EACH ROW
   EXECUTE FUNCTION auto_calculate_project_fields();
@@ -1285,7 +1285,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_calculate_phase_fields ON phases;
-CREATE TRIGGER trigger_auto_calculate_phase_fields
+CREATE OR REPLACE TRIGGER trigger_auto_calculate_phase_fields
   BEFORE INSERT OR UPDATE ON phases
   FOR EACH ROW
   EXECUTE FUNCTION auto_calculate_phase_fields();
@@ -1301,7 +1301,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_calculate_task_fields ON tasks;
-CREATE TRIGGER trigger_auto_calculate_task_fields
+CREATE OR REPLACE TRIGGER trigger_auto_calculate_task_fields
   BEFORE INSERT OR UPDATE ON tasks
   FOR EACH ROW
   EXECUTE FUNCTION auto_calculate_task_fields();
@@ -1317,7 +1317,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_calculate_subproject_fields ON subprojects;
-CREATE TRIGGER trigger_auto_calculate_subproject_fields
+CREATE OR REPLACE TRIGGER trigger_auto_calculate_subproject_fields
   BEFORE INSERT OR UPDATE ON subprojects
   FOR EACH ROW
   EXECUTE FUNCTION auto_calculate_subproject_fields();
@@ -1339,7 +1339,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_auto_calculate_milestone_fields ON milestones;
-CREATE TRIGGER trigger_auto_calculate_milestone_fields
+CREATE OR REPLACE TRIGGER trigger_auto_calculate_milestone_fields
   BEFORE INSERT OR UPDATE ON milestones
   FOR EACH ROW
   EXECUTE FUNCTION auto_calculate_milestone_fields();
@@ -1349,152 +1349,152 @@ CREATE TRIGGER trigger_auto_calculate_milestone_fields
 -- ============================================================================
 
 -- Apply updated_at triggers to all tables with updated_at column
-CREATE TRIGGER trigger_update_updated_at_portfolios
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_portfolios
   BEFORE UPDATE ON portfolios
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_customers
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_customers
   BEFORE UPDATE ON customers
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_sites
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_sites
   BEFORE UPDATE ON sites
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_units
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_units
   BEFORE UPDATE ON units
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_projects
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_projects
   BEFORE UPDATE ON projects
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_subprojects
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_subprojects
   BEFORE UPDATE ON subprojects
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_phases
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_phases
   BEFORE UPDATE ON phases
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_tasks
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_tasks
   BEFORE UPDATE ON tasks
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_task_dependencies
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_task_dependencies
   BEFORE UPDATE ON task_dependencies
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_hour_entries
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_hour_entries
   BEFORE UPDATE ON hour_entries
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_task_quantity_entries
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_task_quantity_entries
   BEFORE UPDATE ON task_quantity_entries
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_qc_tasks
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_qc_tasks
   BEFORE UPDATE ON qc_tasks
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_deliverables
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_deliverables
   BEFORE UPDATE ON deliverables
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_milestones
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_milestones
   BEFORE UPDATE ON milestones
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_sprints
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_sprints
   BEFORE UPDATE ON sprints
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_sprint_tasks
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_sprint_tasks
   BEFORE UPDATE ON sprint_tasks
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_epics
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_epics
   BEFORE UPDATE ON epics
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_features
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_features
   BEFORE UPDATE ON features
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_user_stories
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_user_stories
   BEFORE UPDATE ON user_stories
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_forecasts
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_forecasts
   BEFORE UPDATE ON forecasts
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_snapshots
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_snapshots
   BEFORE UPDATE ON snapshots
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_visual_snapshots
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_visual_snapshots
   BEFORE UPDATE ON visual_snapshots
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_project_health
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_project_health
   BEFORE UPDATE ON project_health
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_project_log
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_project_log
   BEFORE UPDATE ON project_log
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_change_requests
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_change_requests
   BEFORE UPDATE ON change_requests
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_change_impacts
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_change_impacts
   BEFORE UPDATE ON change_impacts
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_project_documents
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_project_documents
   BEFORE UPDATE ON project_documents
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_hierarchy_nodes
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_hierarchy_nodes
   BEFORE UPDATE ON hierarchy_nodes
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_work_items
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_work_items
   BEFORE UPDATE ON work_items
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_updated_at_employees
+CREATE OR REPLACE TRIGGER trigger_update_updated_at_employees
   BEFORE UPDATE ON employees
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
