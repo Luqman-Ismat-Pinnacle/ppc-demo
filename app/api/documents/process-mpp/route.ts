@@ -5,18 +5,71 @@ const PYTHON_SERVICE_URL = process.env.MPP_PARSER_URL || 'https://ppc-demo-produ
 
 // Add the conversion function here
 function convertProjectPlanJSON(data: Record<string, unknown>, projectIdOverride?: string): any {
-  // ... function implementation ...
-  // For demonstration purposes, a simple implementation is provided
-  // Replace this with your actual implementation
-  return {
+  const now = new Date().toISOString();
+  const result: any = {
     units: [],
     phases: [],
     tasks: [],
-    project: {
-      id: projectIdOverride,
-      name: data.project_name,
-    },
+    hierarchy_nodes: [],
+    project: {}
   };
+
+  // Extract project
+  const project = {
+    id: projectIdOverride,
+    name: data.project_name,
+    created_at: now,
+    updated_at: now,
+  };
+
+  // Extract units (assuming data has units array)
+  if (data.units && Array.isArray(data.units)) {
+    result.units = data.units.map((unit: any) => ({
+      id: unit.id,
+      name: unit.name,
+      created_at: now,
+      updated_at: now,
+    }));
+  }
+
+  // Extract phases
+  if (data.phases && Array.isArray(data.phases)) {
+    result.phases = data.phases.map((phase: any) => ({
+      id: phase.id,
+      name: phase.name,
+      project_id: projectIdOverride,
+      created_at: now,
+      updated_at: now,
+    }));
+  }
+
+  // Extract tasks
+  if (data.tasks && Array.isArray(data.tasks)) {
+    result.tasks = data.tasks.map((task: any) => ({
+      id: task.id,
+      name: task.name,
+      phase_id: task.phase_id,
+      created_at: now,
+      updated_at: now,
+    }));
+  }
+
+  // Build hierarchy nodes
+  // This is a simplified example. Adjust based on actual data structure.
+  if (data.hierarchy && Array.isArray(data.hierarchy)) {
+    result.hierarchy_nodes = data.hierarchy.map((node: any) => ({
+      id: node.id,
+      name: node.name,
+      node_type: node.type, // e.g., 'portfolio', 'customer', 'site', 'unit'
+      parent_id: node.parent_id,
+      created_at: now,
+      updated_at: now,
+    }));
+  }
+
+  result.project = project;
+
+  return result;
 }
 
 export async function POST(req: NextRequest) {
@@ -110,17 +163,27 @@ export async function POST(req: NextRequest) {
         const { error } = await supabase.from('units').upsert(convertedData.units, { onConflict: 'id' });
         if (error) console.error('Error saving units:', error);
     }
-    
+
+    // Save Hierarchy Nodes
+    if (convertedData.hierarchy_nodes && convertedData.hierarchy_nodes.length > 0) {
+        const { error } = await supabase.from('hierarchy_nodes').upsert(convertedData.hierarchy_nodes, { onConflict: 'id' });
+        if (error) console.error('Error saving hierarchy nodes:', error);
+    }
+
     // Save Projects (Update existing project with new data?)
     // Actually project already exists, we might update fields
     // But convertedData.project might be a list of 1
-    
+    if (convertedData.project) {
+        const { error } = await supabase.from('projects').upsert(convertedData.project, { onConflict: 'id' });
+        if (error) console.error('Error saving project:', error);
+    }
+
     // Save Phases
     if (convertedData.phases && convertedData.phases.length > 0) {
         const { error } = await supabase.from('phases').upsert(convertedData.phases, { onConflict: 'id' });
         if (error) console.error('Error saving phases:', error);
     }
-    
+
     // Save Tasks
     if (convertedData.tasks && convertedData.tasks.length > 0) {
         const { error } = await supabase.from('tasks').upsert(convertedData.tasks, { onConflict: 'id' });
