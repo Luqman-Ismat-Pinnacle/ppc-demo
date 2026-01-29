@@ -428,12 +428,12 @@ export default function WBSGanttPage() {
       </div>
 
       {/* DEBUG INFO - Display on page */}
-      <div className="card" style={{ marginBottom: '1rem', backgroundColor: '#f0f0f0' }}>
+      <div className="card" style={{ marginBottom: '1rem', backgroundColor: '#f8f8f8' }}>
         <div className="card-header">
           <h3>Debug Information</h3>
         </div>
-        <div className="card-body">
-          <div style={{ fontFamily: 'monospace', fontSize: '12px', whiteSpace: 'pre-wrap' }}>
+        <div className="card-body" style={{ maxHeight: '500px', overflow: 'auto' }}>
+          <div style={{ fontFamily: 'monospace', fontSize: '12px', whiteSpace: 'pre-wrap', color: '#000' }}>
             <strong>WBS Data Items Count:</strong> {data.wbsData?.items?.length || 0}
             <br />
             <strong>Flat Tasks Count:</strong> {flatTasks.length}
@@ -448,13 +448,13 @@ export default function WBSGanttPage() {
             <br />
             <strong>First Raw Item:</strong>
             <br />
-            <div style={{ marginLeft: '20px', fontSize: '10px', maxHeight: '200px', overflow: 'auto' }}>
+            <div style={{ marginLeft: '20px', fontSize: '10px', maxHeight: '200px', overflow: 'auto', color: '#000' }}>
               {data.wbsData?.items?.[0] ? JSON.stringify(data.wbsData.items[0], null, 2) : 'No data'}
             </div>
             <br />
             <strong>MPP Parser Raw Data:</strong>
             <br />
-            <div style={{ marginLeft: '20px', fontSize: '10px', maxHeight: '300px', overflow: 'auto' }}>
+            <div style={{ marginLeft: '20px', fontSize: '10px', maxHeight: '300px', overflow: 'auto', color: '#000' }}>
               {(() => {
                 // Try to get raw MPP data from the data context
                 const rawTasks = fullData.tasks || [];
