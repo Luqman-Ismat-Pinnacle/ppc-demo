@@ -11,64 +11,63 @@ function convertProjectPlanJSON(data: Record<string, unknown>, projectIdOverride
     phases: [],
     tasks: [],
     hierarchy_nodes: [],
-    project: {}
   };
 
-  // Extract project
   const project = {
     id: projectIdOverride,
-    name: data.project_name,
+    name: data.project?.name || 'Imported Project',
     created_at: now,
     updated_at: now,
   };
 
-  // Extract units (assuming data has units array)
-  if (data.units && Array.isArray(data.units)) {
-    result.units = data.units.map((unit: any) => ({
-      id: unit.id,
-      name: unit.name,
-      created_at: now,
-      updated_at: now,
-    }));
-  }
+  // Build hierarchy nodes and tasks
+  const tasks = data.tasks || [];
+  const hierarchyNodesMap = new Map();
+  
+  // First pass: create hierarchy nodes for all summary tasks
+  tasks.forEach((task: any) => {
+    if (task.is_summary) {
+      const node = {
+        id: task.id,
+        name: task.name,
+        node_type: 'unit', // We'll set type based on level later
+        parent_id: task.parent_id,
+        created_at: now,
+        updated_at: now,
+      };
+      hierarchyNodesMap.set(task.id, node);
+    }
+  });
 
-  // Extract phases
-  if (data.phases && Array.isArray(data.phases)) {
-    result.phases = data.phases.map((phase: any) => ({
-      id: phase.id,
-      name: phase.name,
-      project_id: projectIdOverride,
-      created_at: now,
-      updated_at: now,
-    }));
-  }
+  // Second pass: set node_type based on outline level
+  hierarchyNodesMap.forEach((node) => {
+    const task = tasks.find((t: any) => t.id === node.id);
+    if (task) {
+      if (task.outline_level === 1) node.node_type = 'portfolio';
+      else if (task.outline_level === 2) node.node_type = 'customer';
+      else if (task.outline_level === 3) node.node_type = 'site';
+      else node.node_type = 'unit';
+    }
+  });
 
-  // Extract tasks
-  if (data.tasks && Array.isArray(data.tasks)) {
-    result.tasks = data.tasks.map((task: any) => ({
-      id: task.id,
-      name: task.name,
-      phase_id: task.phase_id,
-      created_at: now,
-      updated_at: now,
-    }));
-  }
+  // Third pass: create tasks for non-summary tasks
+  tasks.forEach((task: any) => {
+    if (!task.is_summary) {
+      result.tasks.push({
+        id: task.id,
+        name: task.name,
+        phase_id: task.parent_id, // Assuming parent of a task is a phase
+        created_at: now,
+        updated_at: now,
+      });
+    }
+  });
 
-  // Build hierarchy nodes
-  // This is a simplified example. Adjust based on actual data structure.
-  if (data.hierarchy && Array.isArray(data.hierarchy)) {
-    result.hierarchy_nodes = data.hierarchy.map((node: any) => ({
-      id: node.id,
-      name: node.name,
-      node_type: node.type, // e.g., 'portfolio', 'customer', 'site', 'unit'
-      parent_id: node.parent_id,
-      created_at: now,
-      updated_at: now,
-    }));
-  }
+  // Convert map to array
+  result.hierarchy_nodes = Array.from(hierarchyNodesMap.values());
 
-  result.project = project;
-
+  // Assign units to the project? We don't have direct link, so we skip for now.
+  
   return result;
 }
 
