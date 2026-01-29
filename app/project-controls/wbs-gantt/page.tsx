@@ -432,7 +432,7 @@ export default function WBSGanttPage() {
         <div className="card-header">
           <h3>Debug Information</h3>
         </div>
-        <div className="card-body" style={{ maxHeight: '500px', overflow: 'auto' }}>
+        <div className="card-body" style={{ maxHeight: '600px', overflow: 'auto' }}>
           <div style={{ fontFamily: 'monospace', fontSize: '12px', whiteSpace: 'pre-wrap', color: '#000' }}>
             <strong>WBS Data Items Count:</strong> {data.wbsData?.items?.length || 0}
             <br />
@@ -441,20 +441,14 @@ export default function WBSGanttPage() {
             <strong>Sample Tasks:</strong>
             <br />
             {flatTasks.slice(0, 5).map((task, index) => (
-              <div key={index} style={{ marginLeft: '20px' }}>
+              <div key={index} style={{ marginLeft: '20px', color: '#000' }}>
                 Task {index + 1}: {task.name} (Level: {task.outline_level}, Indent: {(task.outline_level - 1) * 24}px)
               </div>
             ))}
             <br />
-            <strong>First Raw Item:</strong>
-            <br />
-            <div style={{ marginLeft: '20px', fontSize: '10px', maxHeight: '200px', overflow: 'auto', color: '#000' }}>
-              {data.wbsData?.items?.[0] ? JSON.stringify(data.wbsData.items[0], null, 2) : 'No data'}
-            </div>
-            <br />
             <strong>MPP Parser Raw Data:</strong>
             <br />
-            <div style={{ marginLeft: '20px', fontSize: '10px', maxHeight: '300px', overflow: 'auto', color: '#000' }}>
+            <div style={{ marginLeft: '20px', fontSize: '10px', color: '#000' }}>
               {(() => {
                 // Try to get raw MPP data from the data context
                 const rawTasks = fullData.tasks || [];
@@ -467,16 +461,44 @@ export default function WBSGanttPage() {
                   return 'No raw MPP data available in context';
                 }
                 
-                return JSON.stringify(projectTasks.slice(0, 10).map((t: any) => ({
-                  id: t.id,
-                  name: t.name,
-                  outlineLevel: t.outlineLevel,
-                  outline_level: t.outline_level,
-                  parentTaskId: t.parentTaskId,
-                  parent_id: t.parent_id,
-                  isSummary: t.isSummary,
-                  is_summary: t.is_summary
-                })), null, 2);
+                const summaryTasks = projectTasks.filter((t: any) => t.isSummary || t.is_summary);
+                
+                return (
+                  <div>
+                    <div style={{ marginBottom: '10px', color: '#000' }}>
+                      <strong>Total Tasks:</strong> {projectTasks.length}
+                      <br />
+                      <strong>Summary Tasks Count:</strong> {summaryTasks.length}
+                    </div>
+                    <div style={{ marginBottom: '10px', color: '#000' }}>
+                      <strong>Summary Tasks:</strong>
+                      <br />
+                      {summaryTasks.length === 0 ? (
+                        <span style={{ color: '#d00' }}>No summary tasks found - this is the hierarchy issue!</span>
+                      ) : (
+                        summaryTasks.slice(0, 10).map((task: any, index: number) => (
+                          <div key={index} style={{ marginLeft: '20px', color: '#000' }}>
+                            {task.name} (Level: {task.outlineLevel || task.outline_level || 0})
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div style={{ color: '#000' }}>
+                      <strong>Sample Raw Tasks (first 10):</strong>
+                      <br />
+                      {JSON.stringify(projectTasks.slice(0, 10).map((t: any) => ({
+                        id: t.id,
+                        name: t.name,
+                        outlineLevel: t.outlineLevel,
+                        outline_level: t.outline_level,
+                        parentTaskId: t.parentTaskId,
+                        parent_id: t.parent_id,
+                        isSummary: t.isSummary,
+                        is_summary: t.is_summary
+                      })), null, 2)}
+                    </div>
+                  </div>
+                );
               })()}
             </div>
           </div>
