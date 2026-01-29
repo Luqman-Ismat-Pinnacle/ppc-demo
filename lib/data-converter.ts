@@ -389,6 +389,13 @@ export function convertProjectPlanJSON(data: Record<string, unknown>, projectIdO
         wbs: t.wbs || '',
         isSubTask: !!t.parent_id,
 
+        // NEW MPP Parser Fields - map from MPP parser output
+        parent_id: t.parent_id || null,        // Direct mapping from MPP parser
+        is_summary: t.is_summary || false,      // Direct mapping from MPP parser
+        totalSlack: t.total_slack || 0,         // Map total_slack from MPP parser
+        assignedResource: t.resource_names || '', // Map resource_names from MPP parser
+        remainingHours: (t.baseline_work || 0) - (t.actual_work || 0), // Calculate remaining hours
+
         // Standard fields
         status: t.status || (t.percent_complete === 100 ? 'Completed' : (t.percent_complete > 0 ? 'In Progress' : 'Not Started')),
         isMilestone: t.is_milestone || false,
