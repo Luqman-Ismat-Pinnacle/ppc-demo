@@ -56,9 +56,39 @@ function convertWorkdayEmployees(csvData: string[][]): Employee[] {
 }
 
 function convertWorkdayTasks(csvData: string[][]): any {
-  // TO DO: implement the conversion logic for Workday tasks
-  // For now, just return an empty array
-  return [];
+  if (!csvData || csvData.length < 2) {
+    return [];
+  }
+
+  const headers = csvData[0];
+  const rows = csvData.slice(1);
+
+  const idIndex = findColumnIndex(headers, ['Task ID', 'ID']);
+  const nameIndex = findColumnIndex(headers, ['Task Name', 'Name']);
+  const projectIdIndex = findColumnIndex(headers, ['Project ID', 'Project']);
+  const actualHoursIndex = findColumnIndex(headers, ['Actual Hours', 'Actual Work']);
+  const baselineHoursIndex = findColumnIndex(headers, ['Baseline Hours', 'Baseline Work']);
+  const actualStartDateIndex = findColumnIndex(headers, ['Actual Start Date', 'Start']);
+  const actualEndDateIndex = findColumnIndex(headers, ['Actual End Date', 'Finish']);
+  const statusIndex = findColumnIndex(headers, ['Status', 'Task Status']);
+  const percentCompleteIndex = findColumnIndex(headers, ['Percent Complete', '% Complete']);
+
+  const now = new Date().toISOString();
+
+  return rows.map(row => ({
+    id: row[idIndex],
+    name: row[nameIndex],
+    projectId: row[projectIdIndex],
+    actualHours: parseFloat(row[actualHoursIndex]) || 0,
+    baselineHours: parseFloat(row[baselineHoursIndex]) || 0,
+    actualStartDate: row[actualStartDateIndex],
+    actualEndDate: row[actualEndDateIndex],
+    status: row[statusIndex],
+    percentComplete: parseFloat(row[percentCompleteIndex]) || 0,
+    createdAt: now,
+    updatedAt: now,
+    isActive: true,
+  }));
 }
 
 export async function POST(req: NextRequest) {
