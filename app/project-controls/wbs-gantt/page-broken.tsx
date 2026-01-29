@@ -91,11 +91,11 @@ export default function WBSGanttPage() {
       </div>
 
       {/* WBS Table Section - MPP Parser UI Style */}
-      <div className="bg-slate-900 rounded-lg border border-slate-700">
-        <div className="p-4 border-b border-slate-700">
-          <h3 className="text-lg font-semibold text-white">WBS Hierarchy (MPP Parser Style)</h3>
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">WBS Hierarchy (MPP Parser Style)</h3>
         </div>
-        <div className="p-4">
+        <div className="card-body">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-slate-800/80 sticky top-0 z-10 backdrop-blur-sm">
@@ -156,27 +156,32 @@ export default function WBSGanttPage() {
         </div>
       </div>
 
-      {/* Gantt Chart Section - Simplified */}
-      <div className="bg-slate-900 rounded-lg border border-slate-700">
-        <div className="p-4 border-b border-slate-700">
-          <h3 className="text-lg font-semibold text-white">Gantt Chart Timeline</h3>
+      {/* Gantt Chart Section - From commit dbb83c5e3f680e40c8f8d1c6fa219c9cc31e2688 */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">Gantt Chart Timeline</h3>
         </div>
-        <div className="p-4">
+        <div className="card-body">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-slate-800/80 sticky top-0 z-10 backdrop-blur-sm">
                 <tr>
                   <th className="px-3 py-2 text-slate-400 font-medium w-full">Task Name</th>
-                  {dateColumns.slice(0, 30).map((col, i) => (
-                    <th key={i} style={{
-                      width: `${columnWidth}px`,
-                      textAlign: 'center',
-                      fontSize: '0.6rem',
-                      borderLeft: '1px solid #333'
-                    }}>
-                      {col.label}
-                    </th>
-                  ))}
+                  {/* Gantt Timeline Headers */}
+                  {dateColumns.map((col, i) => {
+                    const isCurrentPeriod = today >= col.start && today <= col.end;
+                    return (
+                      <th key={i} style={{
+                        width: `${columnWidth}px`,
+                        textAlign: 'center',
+                        fontSize: '0.6rem',
+                        borderLeft: '1px solid #333',
+                        backgroundColor: isCurrentPeriod ? 'rgba(64, 224, 208, 0.05)' : 'transparent'
+                      }}>
+                        {col.label}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -210,15 +215,30 @@ export default function WBSGanttPage() {
                           <span className="truncate">{task.name}</span>
                         </div>
                       </td>
-                      {dateColumns.slice(0, 30).map((col, i) => {
+                      {/* Gantt Timeline Cells */}
+                      {dateColumns.map((col, i) => {
                         const taskStart = task.startDate ? new Date(task.startDate) : null;
                         const taskEnd = task.endDate ? new Date(task.endDate) : null;
                         const isInRange = taskStart && taskEnd && col.start <= taskEnd && col.end >= taskStart;
+                        const isStart = taskStart && col.start <= taskStart && col.end >= taskStart;
+                        const isEnd = taskEnd && col.start <= taskEnd && col.end >= taskEnd;
                         
-                        const cellStyle = {
+                        let cellStyle = {
                           borderLeft: '1px solid #333',
-                          backgroundColor: isInRange ? itemColor : 'transparent'
+                          backgroundColor: 'transparent'
                         };
+                        
+                        if (isInRange) {
+                          if (isStart && isEnd) {
+                            cellStyle.backgroundColor = itemColor;
+                          } else if (isStart) {
+                            cellStyle.background = `linear-gradient(to right, ${itemColor} 50%, transparent 50%)`;
+                          } else if (isEnd) {
+                            cellStyle.background = `linear-gradient(to right, transparent 50%, ${itemColor} 50%)`;
+                          } else {
+                            cellStyle.backgroundColor = itemColor;
+                          }
+                        }
                         
                         return (
                           <td key={i} style={cellStyle}></td>
