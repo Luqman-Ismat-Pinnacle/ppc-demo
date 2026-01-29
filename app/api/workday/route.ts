@@ -21,9 +21,38 @@ const EDGE_FUNCTIONS = {
 type SyncType = keyof typeof EDGE_FUNCTIONS;
 
 function convertWorkdayEmployees(csvData: string[][]): Employee[] {
-  // TO DO: implement the conversion logic for Workday employees
-  // For now, just return an empty array
-  return [];
+  if (!csvData || csvData.length < 2) {
+    return [];
+  }
+
+  const headers = csvData[0];
+  const rows = csvData.slice(1);
+
+  const idIndex = findColumnIndex(headers, ['Employee ID', 'ID']);
+  const nameIndex = findColumnIndex(headers, ['Employee Name', 'Name']);
+  const jobTitleIndex = findColumnIndex(headers, ['Job Title', 'Title']);
+  const managementLevelIndex = findColumnIndex(headers, ['Management Level', 'Level']);
+  const managerIndex = findColumnIndex(headers, ['Manager', 'Manager Name']);
+  const emailIndex = findColumnIndex(headers, ['Email', 'Email Address']);
+  const employeeTypeIndex = findColumnIndex(headers, ['Employee Type', 'Type']);
+  const roleIndex = findColumnIndex(headers, ['Role', 'Job Role']);
+  const isActiveIndex = findColumnIndex(headers, ['Active', 'Is Active']);
+
+  const now = new Date().toISOString();
+
+  return rows.map(row => ({
+    id: row[idIndex],
+    name: row[nameIndex],
+    jobTitle: row[jobTitleIndex],
+    managementLevel: row[managementLevelIndex],
+    manager: row[managerIndex],
+    email: row[emailIndex],
+    employeeType: row[employeeTypeIndex],
+    role: row[roleIndex],
+    isActive: row[isActiveIndex] === 'true' || row[isActiveIndex] === 'Yes',
+    createdAt: now,
+    updatedAt: now,
+  }));
 }
 
 function convertWorkdayTasks(csvData: string[][]): any {
