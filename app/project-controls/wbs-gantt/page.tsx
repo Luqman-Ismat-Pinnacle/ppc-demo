@@ -22,9 +22,29 @@ import { CPMEngine, CPMTask, CPMResult } from '@/lib/cpm-engine';
 import { WBSTableRow } from '@/types/wbs';
 import { formatCurrency } from '@/lib/wbs-utils';
 import type { Employee } from '@/types/data';
+import {
+  type SortState,
+  formatSortIndicator,
+  getNextSortState,
+  sortByState,
+} from '@/lib/sort-utils';
 import { supabase } from '@/lib/supabase';
 import EnhancedTooltip from '@/components/ui/EnhancedTooltip';
 import SearchableDropdown from '@/components/ui/SearchableDropdown';
+
+// Helper to get employee name from ID
+const getEmployeeName = (resourceId: string | undefined, employees: Employee[]): string => {
+  if (!resourceId) return '-';
+  const employee = employees.find(e => e.employeeId === resourceId);
+  return employee?.name?.split(' ')[0] || resourceId; // Show first name only
+};
+
+// Helper to get task name from ID
+const getTaskName = (taskId: string | undefined, items: WBSTableRow[]): string => {
+  if (!taskId) return '-';
+  const task = items.find(t => t.id === taskId);
+  return task?.name?.split(' ').slice(0, 3).join(' ') || taskId.replace('wbs-', ''); // First 3 words or short ID
+};
 
 const WBS_COLORS = {
   portfolio: '#40E0D0',
@@ -42,17 +62,38 @@ const WBS_COLORS = {
 
 type GanttInterval = 'week' | 'month' | 'quarter' | 'year';
 
-const FolderIcon = () => (
-  <svg className="w-4 h-4 text-indigo-400 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
-  </svg>
-);
+// Function to build hierarchy from flat v_unified_wbs data
+function buildHierarchyFromFlat(flatData: VUnifiedWBS[]): any[] {
+  const tree: any[] = [];
+  const map: Record<string, any> = {};
 
-const CheckmarkIcon = () => (
-  <svg className="w-4 h-4 text-emerald-500 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-  </svg>
-);
+  // First pass: create map of id to node and init children array
+  flatData.forEach(node => {
+    map[node.node_id] = {
+      ...node,
+      id: node.node_id,
+      name: node.node_name,
+      itemType: node.node_type,
+      children: []
+    };
+  });
+
+  // Second pass: build tree using node_path
+  flatData.forEach(node => {
+    const path = node.node_path;
+    // The node itself is the last in the path
+    const nodeId = path[path.length - 1];
+    const parentId = path.length > 1 ? path[path.length - 2] : null;
+
+    if (parentId && map[parentId]) {
+      map[parentId].children.push(map[nodeId]);
+    } else {
+      tree.push(map[nodeId]);
+    }
+  });
+
+  return tree;
+}
 
 export default function WBSGanttPage() {
   const { filteredData, updateData, data: fullData, setHierarchyFilter } = useData();
@@ -63,6 +104,8 @@ export default function WBSGanttPage() {
   const [cpmResult, setCpmResult] = useState<CPMResult | null>(null);
   const [cpmLogs, setCpmLogs] = useState<string[]>([]);
   const [ganttInterval, setGanttInterval] = useState<GanttInterval>('week');
+  const [wbsSort, setWbsSort] = useState<SortState | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -74,6 +117,10 @@ export default function WBSGanttPage() {
       secondary: p.projectId
     }));
   }, [fullData.projects]);
+
+  // Use the v_unified_wbs data from fullData
+  const flatWbsData = fullData.v_unified_wbs || [];
+  const wbsHierarchy = useMemo(() => buildHierarchyFromFlat(flatWbsData), [flatWbsData]);
 
   // Use actual current date
   const today = useMemo(() => new Date(), []);
@@ -91,7 +138,7 @@ export default function WBSGanttPage() {
       });
     };
 
-    if (data.wbsData?.items) collectDates(data.wbsData.items);
+    if (wbsHierarchy) collectDates(wbsHierarchy);
 
     // Default to today if no dates found, ensuring today is always included
     const todayTime = new Date().getTime();
@@ -107,7 +154,7 @@ export default function WBSGanttPage() {
       projectStart: new Date(minTime),
       projectEnd: new Date(maxTime)
     };
-  }, [data.wbsData?.items]);
+  }, [wbsHierarchy]);
 
   // Generate Date Columns based on interval with 5 column buffer
   const dateColumns = useMemo(() => {
@@ -269,7 +316,7 @@ export default function WBSGanttPage() {
       });
     };
 
-    if (data.wbsData?.items) collectIds(data.wbsData.items);
+    if (wbsHierarchy) collectIds(wbsHierarchy);
     setExpandedIds(allIds);
   };
 
@@ -277,6 +324,94 @@ export default function WBSGanttPage() {
   const collapseAll = () => {
     setExpandedIds(new Set());
   };
+
+  const sortedWbsItems = useMemo(() => {
+    if (!wbsHierarchy) return [];
+    if (!wbsSort) return wbsHierarchy;
+
+    const getOverlapMs = (start: Date, end: Date, colStart: Date, colEnd: Date) => {
+      const rangeStart = start > colStart ? start : colStart;
+      const rangeEnd = end < colEnd ? end : colEnd;
+      const overlap = rangeEnd.getTime() - rangeStart.getTime();
+      return overlap > 0 ? overlap : 0;
+    };
+
+    const getRemainingHours = (item: any) => {
+      if (item.remainingHours != null) return item.remainingHours;
+      if (item.projectedRemainingHours != null) return item.projectedRemainingHours;
+      if (item.baselineHours != null && item.actualHours != null) {
+        return Math.max(0, (item.baselineHours || 0) - (item.actualHours || 0));
+      }
+      return null;
+    };
+
+    const getRemainingCost = (item: any) => {
+      if (item.remainingCost != null) return item.remainingCost;
+      if (item.baselineCost != null && item.actualCost != null) {
+        return Math.max(0, (item.baselineCost || 0) - (item.actualCost || 0));
+      }
+      return null;
+    };
+
+    const getSortValue = (item: any, key: string) => {
+      if (key.startsWith('period-')) {
+        const index = Number(key.replace('period-', ''));
+        const column = dateColumns[index];
+        if (!column || !item.startDate || !item.endDate) return null;
+        const itemStart = new Date(item.startDate);
+        const itemEnd = new Date(item.endDate);
+        return getOverlapMs(itemStart, itemEnd, column.start, column.end);
+      }
+
+      switch (key) {
+        case 'wbsCode':
+          return item.wbsCode;
+        case 'name':
+          return item.name;
+        case 'itemType':
+          return item.itemType || item.type;
+        case 'resource':
+          return getEmployeeName(item.assignedResourceId, employees);
+        case 'startDate':
+          return item.startDate ? new Date(item.startDate) : null;
+        case 'endDate':
+          return item.endDate ? new Date(item.endDate) : null;
+        case 'daysRequired':
+          return item.daysRequired ?? null;
+        case 'baselineHours':
+          return item.baselineHours ?? null;
+        case 'actualHours':
+          return item.actualHours ?? null;
+        case 'remainingHours':
+          return getRemainingHours(item);
+        case 'baselineCost':
+          return item.baselineCost ?? null;
+        case 'actualCost':
+          return item.actualCost ?? null;
+        case 'remainingCost':
+          return getRemainingCost(item);
+        case 'taskEfficiency':
+          return item.taskEfficiency ?? null;
+        case 'percentComplete':
+          return item.percentComplete ?? null;
+        case 'predecessors':
+          return item.predecessors?.map((p: any) => p.taskId).join(', ') || '';
+        case 'isCritical':
+          return item.isCritical ?? false;
+        default:
+          return null;
+      }
+    };
+
+    const sortItems = (items: any[]): any[] => {
+      const sorted = sortByState(items, wbsSort, getSortValue);
+      return sorted.map((item) => (
+        item.children ? { ...item, children: sortItems(item.children) } : item
+      ));
+    };
+
+    return sortItems(wbsHierarchy);
+  }, [wbsHierarchy, wbsSort, dateColumns, employees]);
 
   // Flatten WBS for table
   const flatRows = useMemo(() => {
@@ -304,11 +439,22 @@ export default function WBSGanttPage() {
       }
     };
 
-    if (data.wbsData?.items) {
-      data.wbsData.items.forEach(item => processItem(item, 1));
+    if (sortedWbsItems.length > 0) {
+      sortedWbsItems.forEach(item => processItem(item, 1));
     }
     return rows;
-  }, [data.wbsData?.items, expandedIds]);
+  }, [sortedWbsItems, expandedIds]);
+
+  // Optimize task name lookup
+  const taskNameMap = useMemo(() => {
+    return new Map(flatRows.map(r => [r.id, r.name]));
+  }, [flatRows]);
+
+  const getTaskNameFromMap = (taskId: string | undefined): string => {
+    if (!taskId) return '-';
+    const name = taskNameMap.get(taskId);
+    return name?.split(' ').slice(0, 3).join(' ') || taskId.replace('wbs-', '');
+  };
 
   // Run CPM Analysis
   const runCPM = () => {
@@ -331,8 +477,24 @@ export default function WBSGanttPage() {
       });
     };
 
-    if (data.wbsData?.items) {
-      collectTasks(data.wbsData.items);
+    if (wbsHierarchy) {
+      let itemsToAnalyze = wbsHierarchy;
+
+      // Filter by selected project if set
+      // Filter by selected project if set
+      if (selectedProjectId) {
+        // Since items are now projects, we can just find the matching one directly
+        const projectItem = itemsToAnalyze.find((item: any) =>
+          item.id === `wbs-project-${selectedProjectId}` ||
+          item.id === selectedProjectId
+        );
+
+        if (projectItem) {
+          itemsToAnalyze = [projectItem];
+        }
+      }
+
+      collectTasks(itemsToAnalyze);
     }
 
     engine.loadTasks(tasks as any);
@@ -365,7 +527,7 @@ export default function WBSGanttPage() {
       });
     };
 
-    if (data.wbsData?.items) {
+    if (wbsHierarchy) {
       const logs: string[] = [];
       const startTime = performance.now();
 
@@ -374,8 +536,8 @@ export default function WBSGanttPage() {
       const tasksWithPreds = tasks.filter(t => t.predecessors && t.predecessors.length > 0).length;
       logs.push(`> ${tasksWithPreds} tasks have predecessor links`);
 
-      const updated = updateItems(data.wbsData.items);
-      updateData({ wbsData: { ...data.wbsData, items: updated } });
+      const updated = updateItems(wbsHierarchy);
+      updateData({ wbsData: { items: updated } });
 
       const endTime = performance.now();
       logs.push(`> Calculation took ${(endTime - startTime).toFixed(2)}ms`);
@@ -438,6 +600,45 @@ export default function WBSGanttPage() {
     }
   };
 
+  // Virtualization State
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(600);
+
+  // Update viewport height on mount/resize
+  useEffect(() => {
+    if (containerRef.current) {
+      setViewportHeight(containerRef.current.clientHeight);
+    }
+    const handleResize = () => {
+      if (containerRef.current) {
+        setViewportHeight(containerRef.current.clientHeight);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  };
+
+  const rowHeight = 30;
+  const headerHeight = 36;
+  const buffer = 10;
+
+  const totalRowsHeight = flatRows.length * rowHeight;
+
+  const { virtualRows, paddingTop, paddingBottom } = useMemo(() => {
+    const startRow = Math.max(0, Math.floor(scrollTop / rowHeight) - buffer);
+    const endRow = Math.min(flatRows.length, Math.ceil((scrollTop + viewportHeight) / rowHeight) + buffer);
+
+    const visible = flatRows.slice(startRow, endRow);
+    const paddingTop = startRow * rowHeight;
+    const paddingBottom = (flatRows.length - endRow) * rowHeight;
+
+    return { virtualRows: visible, paddingTop, paddingBottom, startRow };
+  }, [scrollTop, viewportHeight, flatRows]);
+
   // Draw Predecessor Arrows using Math (No DOM access)
   useEffect(() => {
     const drawArrows = () => {
@@ -460,7 +661,7 @@ export default function WBSGanttPage() {
 
       // Set SVG Size
       svg.style.width = `${fixedColsWidth + timelinePixelWidth}px`;
-      svg.style.height = `${flatRows.length * 30}px`;
+      svg.style.height = `${headerHeight + totalRowsHeight}px`;
 
       // Only draw arrows for visible rows or rows connected to visible rows? 
       // For simplicity and correctness, drawing all is safer as long as calculation is fast.
@@ -471,7 +672,7 @@ export default function WBSGanttPage() {
         if (!item.startDate) return;
 
         const targetRowIndex = index;
-        const targetY = 36 + (targetRowIndex * 30) + (30 / 2);
+        const targetY = headerHeight + (targetRowIndex * rowHeight) + (rowHeight / 2);
 
         // Target X (Start of task bar)
         const targetStart = new Date(item.startDate).getTime();
@@ -488,7 +689,7 @@ export default function WBSGanttPage() {
           const sourceItem = flatRows[sourceRowIndex];
           if (!sourceItem.endDate) return;
 
-          const sourceY = 36 + (sourceRowIndex * 30) + (30 / 2);
+          const sourceY = headerHeight + (sourceRowIndex * rowHeight) + (rowHeight / 2);
 
           // Source X (End of task bar)
           const sourceEnd = new Date(sourceItem.endDate).getTime();
@@ -525,13 +726,25 @@ export default function WBSGanttPage() {
     // Draw immediately and on resize/data change
     requestAnimationFrame(drawArrows);
 
-  }, [flatRows, dateColumns, columnWidth, fixedColsWidth]); // Depend on totalRowsHeight/flatRows to redraw
+  }, [flatRows, dateColumns, columnWidth, fixedColsWidth, totalRowsHeight]); // Depend on totalRowsHeight/flatRows to redraw
 
   const toggleExpand = (id: string) => {
     const newExpanded = new Set(expandedIds);
     if (newExpanded.has(id)) newExpanded.delete(id);
     else newExpanded.add(id);
     setExpandedIds(newExpanded);
+  };
+
+  // Calculate bar position for a date range
+  const getBarPosition = (itemStart: Date, itemEnd: Date, colStart: Date, colEnd: Date) => {
+    const colDuration = colEnd.getTime() - colStart.getTime();
+    const overlapStart = Math.max(itemStart.getTime(), colStart.getTime());
+    const overlapEnd = Math.min(itemEnd.getTime(), colEnd.getTime());
+
+    const left = ((overlapStart - colStart.getTime()) / colDuration) * 100;
+    const width = ((overlapEnd - overlapStart) / colDuration) * 100;
+
+    return { left, width };
   };
 
   return (
@@ -580,6 +793,8 @@ export default function WBSGanttPage() {
           <div style={{ width: '200px' }}>
             <SearchableDropdown
               options={projectOptions}
+              value={selectedProjectId}
+              onChange={setSelectedProjectId}
               placeholder="Select Project for CPM..."
               disabled={false}
             />
@@ -680,6 +895,7 @@ export default function WBSGanttPage() {
           className="chart-card-body no-padding"
           style={{ flex: 1, overflow: 'auto', position: 'relative' }}
           ref={containerRef}
+          onScroll={handleScroll}
         >
           {/* SVG Overlay for Arrows */}
           <svg
@@ -701,46 +917,329 @@ export default function WBSGanttPage() {
             </defs>
           </svg>
 
-          <div className="wbs-table" ref={tableRef} style={{ overflowY: 'auto', position: 'relative' }}>
-            <table className="min-w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-slate-800/80 sticky top-0 z-10 backdrop-blur-sm">
-                <tr>
-                  <th className="px-3 py-2 text-slate-400 font-medium">ID</th>
-                  <th className="px-3 py-2 text-slate-400 font-medium w-full">Task Name</th>
-                  <th className="px-3 py-2 text-slate-400 font-medium text-right">%</th>
-                  <th className="px-3 py-2 text-slate-400 font-medium text-right">Dur (h)</th>
-                  <th className="px-3 py-2 text-slate-400 font-medium">Start</th>
-                  <th className="px-3 py-2 text-slate-400 font-medium">Finish</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {flatRows.map((item, index) => {
-                  const indent = item.depth * 20;
-                  const rowClass = item.isSummary ? 'bg-slate-800/30 font-semibold text-slate-200' : 'text-slate-400 hover:bg-slate-800/50';
-                  const startDate = item.startDate ? new Date(item.startDate).toISOString().split('T')[0] : '';
-                  const endDate = item.endDate ? new Date(item.endDate).toISOString().split('T')[0] : '';
-                  const duration = item.projectedHours ? Math.round(item.projectedHours) : '-';
-                  const percentComplete = item.percentComplete ? Math.round(item.percentComplete) + '%' : '0%';
-
+          <table
+            ref={tableRef}
+            className="wbs-table"
+            style={{
+              width: 'max-content',
+              minWidth: '100%',
+              borderCollapse: 'separate',
+              borderSpacing: 0,
+              // Limit width to actual content - prevent empty scroll space
+              maxWidth: `${fixedColsWidth + (dateColumns.length * columnWidth)}px`
+            }}
+          >
+            <thead>
+              <tr style={{ height: '36px' }}>
+                <th style={{ width: '100px', position: 'sticky', left: 0, top: 0, zIndex: 40, background: 'var(--bg-secondary)', borderRight: '1px solid #444', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  WBS Code
+                </th>
+                <th style={{ width: '300px', position: 'sticky', left: '100px', top: 0, zIndex: 40, background: 'var(--bg-secondary)', borderRight: '1px solid #444', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  Name
+                </th>
+                <th style={{ width: '80px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  Type
+                </th>
+                <th style={{ width: '100px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  Resource
+                </th>
+                <th style={{ width: '80px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  Start
+                </th>
+                <th style={{ width: '80px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  End
+                </th>
+                <th style={{ width: '40px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }} className="number">
+                  <EnhancedTooltip content={{ title: 'Days Required', description: 'Estimated working days to complete.' }}>
+                    <span style={{ cursor: 'help', borderBottom: '1px dotted #666' }}>Days</span>
+                  </EnhancedTooltip>
+                </th>
+                <th style={{ width: '50px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }} className="number">
+                  <EnhancedTooltip content={{ title: 'Baseline Hours', description: 'Original budgeted hours.' }}>
+                    <span style={{ cursor: 'help', borderBottom: '1px dotted #666' }}>BL Hrs</span>
+                  </EnhancedTooltip>
+                </th>
+                <th style={{ width: '50px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }} className="number">
+                  <EnhancedTooltip content={{ title: 'Actual Hours', description: 'Hours logged to date.' }}>
+                    <span style={{ cursor: 'help', borderBottom: '1px dotted #666' }}>Act Hrs</span>
+                  </EnhancedTooltip>
+                </th>
+                <th style={{ width: '55px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, color: 'var(--pinnacle-teal)', whiteSpace: 'nowrap' }} className="number">
+                  <EnhancedTooltip content={{ title: 'Remaining Hours', description: 'Hours left to complete.', calculation: 'Baseline - Actual' }}>
+                    <span style={{ cursor: 'help', borderBottom: '1px dotted var(--pinnacle-teal)' }}>Rem Hrs</span>
+                  </EnhancedTooltip>
+                </th>
+                <th style={{ width: '70px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }} className="number">
+                  <EnhancedTooltip content={{ title: 'Baseline Cost', description: 'Original budgeted cost.', calculation: 'Baseline Hours × Rate' }}>
+                    <span style={{ cursor: 'help', borderBottom: '1px dotted #666' }}>BL Cost</span>
+                  </EnhancedTooltip>
+                </th>
+                <th style={{ width: '70px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }} className="number">
+                  <EnhancedTooltip content={{ title: 'Actual Cost', description: 'Cost incurred to date.', calculation: 'Actual Hours × Rate' }}>
+                    <span style={{ cursor: 'help', borderBottom: '1px dotted #666' }}>Act Cost</span>
+                  </EnhancedTooltip>
+                </th>
+                <th style={{ width: '75px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, color: 'var(--pinnacle-teal)', whiteSpace: 'nowrap' }} className="number">
+                  <EnhancedTooltip content={{ title: 'Remaining Cost', description: 'Projected cost to finish.', calculation: 'Remaining Hours × Rate' }}>
+                    <span style={{ cursor: 'help', borderBottom: '1px dotted var(--pinnacle-teal)' }}>Rem Cost</span>
+                  </EnhancedTooltip>
+                </th>
+                <th style={{ width: '40px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }} className="number">
+                  <EnhancedTooltip content={{ title: 'Efficiency %', description: 'Work rate efficiency.', calculation: 'Earned / Spent' }}>
+                    <span style={{ cursor: 'help', borderBottom: '1px dotted #666' }}>Eff%</span>
+                  </EnhancedTooltip>
+                </th>
+                <th style={{ width: '40px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }} className="number">
+                  <EnhancedTooltip content={{ title: 'Progress', description: 'Percentage complete.' }}>
+                    <span style={{ cursor: 'help', borderBottom: '1px dotted #666' }}>Prog</span>
+                  </EnhancedTooltip>
+                </th>
+                <th style={{ width: '80px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  <EnhancedTooltip content={{ title: 'Predecessors', description: 'Tasks that must finish before this one starts.' }}>
+                    <span style={{ cursor: 'help', borderBottom: '1px dotted #666' }}>Pred</span>
+                  </EnhancedTooltip>
+                </th>
+                <th style={{ width: '40px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderRight: '1px solid #444', borderBottom: '1px solid #333', fontWeight: 600, color: '#ff6b6b', whiteSpace: 'nowrap' }} className="number">
+                  <EnhancedTooltip content={{ title: 'Total Float', description: 'Days task can delay without delaying project.' }}>
+                    <span style={{ cursor: 'help', borderBottom: '1px dotted #666' }}>TF</span>
+                  </EnhancedTooltip>
+                </th>
+                <th style={{ width: '30px', position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-secondary)', borderBottom: '1px solid #333', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  <EnhancedTooltip content={{ title: 'Critical Path', description: 'Tasks driving the project end date.' }}>
+                    <span style={{ cursor: 'help', borderBottom: '1px dotted #666' }}>CP</span>
+                  </EnhancedTooltip>
+                </th>
+                {/* Gantt Timeline Headers */}
+                {dateColumns.map((col, i) => {
+                  const isCurrentPeriod = today >= col.start && today <= col.end;
                   return (
-                    <tr key={item.id} className={`${rowClass} border-b border-slate-800 transition-colors`}>
-                      <td className="px-3 py-2 text-xs font-mono text-slate-500">{item.id}</td>
-                      <td className="px-3 py-2">
-                        <div style={{ paddingLeft: `${indent}px` }} className="flex items-center">
-                          {item.isSummary ? <FolderIcon /> : <CheckmarkIcon />}
-                          <span className="truncate">{item.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right text-xs">{percentComplete}</td>
-                      <td className="px-3 py-2 text-right text-xs font-mono">{duration}</td>
-                      <td className="px-3 py-2 text-xs text-slate-500">{startDate}</td>
-                      <td className="px-3 py-2 text-xs text-slate-500">{endDate}</td>
-                    </tr>
+                    <th key={i} style={{
+                      width: `${columnWidth}px`,
+                      textAlign: 'center',
+                      fontSize: '0.6rem',
+                      borderLeft: '1px solid #333',
+                      borderBottom: '1px solid #333',
+                      background: isCurrentPeriod ? 'rgba(64, 224, 208, 0.2)' : 'var(--bg-secondary)',
+                      color: isCurrentPeriod ? 'var(--pinnacle-teal)' : 'inherit',
+                      fontWeight: 600,
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 30
+                    }}>
+                      {col.label}
+                    </th>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody>
+              {paddingTop > 0 && (
+                <tr style={{ height: `${paddingTop}px` }}>
+                  <td colSpan={100} style={{ padding: 0, border: 'none' }}></td>
+                </tr>
+              )}
+              {virtualRows.map((row) => {
+                const isCritical = row.isCritical;
+                const efficiency = row.taskEfficiency || 0;
+                const effColor = efficiency >= 100 ? '#40E0D0' : efficiency >= 90 ? '#CDDC39' : '#F59E0B';
+                const itemColor = isCritical ? WBS_COLORS.critical : (row.hasChildren ? (WBS_COLORS as any)[row.itemType] || '#40E0D0' : effColor);
+                const isExpanded = expandedIds.has(row.id);
+
+                return (
+                  <tr
+                    key={row.id}
+                    data-id={row.id}
+                    className={row.hasChildren ? 'rollup' : ''}
+                    style={{
+                      height: '30px',
+                      background: isCritical ? 'rgba(220, 38, 38, 0.05)' : 'var(--bg-primary)'
+                    }}
+                  >
+                    <td style={{
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 10,
+                      background: isCritical ? '#1a1010' : 'var(--bg-primary)',
+                      borderRight: '1px solid #444',
+                      boxShadow: isCritical ? 'inset 2px 0 0 #ef4444' : 'none'
+                    }}>
+                      <div style={{ paddingLeft: `${row.indentLevel * 12}px`, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {row.hasChildren && (
+                          <button
+                            className="btn-chevron-no-highlight"
+                            onClick={() => toggleExpand(row.id)}
+                            style={{ color: '#fff', cursor: 'pointer', padding: 0, fontSize: '8px' }}
+                          >
+                            {isExpanded ? '▼' : '▶'}
+                          </button>
+                        )}
+                        <span style={{ color: isCritical ? '#ef4444' : 'inherit', fontSize: '0.65rem', fontWeight: isCritical ? 700 : 400 }}>{row.wbsCode}</span>
+                      </div>
+                    </td>
+                    <td style={{
+                      position: 'sticky',
+                      left: '100px',
+                      zIndex: 10,
+                      background: isCritical ? '#1a1010' : 'var(--bg-primary)',
+                      borderRight: '1px solid #444',
+                      maxWidth: '300px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      <EnhancedTooltip content={row.name || ''}>
+                        <span style={{ fontWeight: row.hasChildren || isCritical ? 700 : 400, fontSize: '0.7rem', color: isCritical ? '#ef4444' : 'inherit', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.name}</span>
+                      </EnhancedTooltip>
+                    </td>
+                    <td><span className={`type-badge ${row.itemType}`} style={{ fontSize: '0.5rem' }}>{(row.itemType || '').replace('_', ' ')}</span></td>
+                    <td style={{ fontSize: '0.65rem' }}>{getEmployeeName(row.assignedResourceId, employees)}</td>
+                    <td style={{ fontSize: '0.65rem' }}>{row.startDate ? new Date(row.startDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' }) : '-'}</td>
+                    <td style={{ fontSize: '0.65rem' }}>{row.endDate ? new Date(row.endDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' }) : '-'}</td>
+                    <td className="number" style={{ fontSize: '0.65rem' }}>{row.daysRequired !== undefined && row.daysRequired !== null ? Number(row.daysRequired).toFixed(2) : '-'}</td>
+                    <td className="number" style={{ fontSize: '0.65rem' }}>{row.baselineHours ? Number(row.baselineHours).toFixed(2) : '-'}</td>
+                    <td className="number" style={{ fontSize: '0.65rem' }}>{row.actualHours ? Number(row.actualHours).toFixed(2) : '-'}</td>
+                    <td className="number" style={{ fontSize: '0.65rem', color: 'var(--pinnacle-teal)' }}>{(() => {
+                      const remHrs = (row as any).remainingHours ?? row.projectedRemainingHours ?? (row.baselineHours && row.actualHours ? Math.max(0, (row.baselineHours || 0) - (row.actualHours || 0)) : null);
+                      return remHrs !== null ? remHrs.toFixed(2) : '-';
+                    })()}</td>
+                    <td className="number" style={{ fontSize: '0.65rem' }}>{formatCurrency(row.baselineCost || 0)}</td>
+                    <td className="number" style={{ fontSize: '0.65rem' }}>{formatCurrency(row.actualCost || 0)}</td>
+                    <td className="number" style={{ fontSize: '0.65rem', color: 'var(--pinnacle-teal)' }}>{formatCurrency(row.remainingCost ?? Math.max(0, (row.baselineCost || 0) - (row.actualCost || 0)))}</td>
+                    <td className="number" style={{ fontSize: '0.65rem' }}>{row.taskEfficiency ? `${Math.round(row.taskEfficiency)}%` : '-'}</td>
+                    <td>
+                      <div className="progress-bar" style={{ width: '25px', height: '6px' }}>
+                        <div className="progress-bar-fill" style={{ width: `${row.percentComplete || 0}%`, background: itemColor }}></div>
+                      </div>
+                    </td>
+                    <td style={{ fontSize: '0.55rem' }} title={row.predecessors?.map((p: any) => `${getTaskNameFromMap(p.taskId)} (${p.relationship})`).join(', ') || ''}>
+                      {row.predecessors?.map((p: any) => `${getTaskNameFromMap(p.taskId)}`).join(', ') || '-'}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      {(isCritical || (row as any).is_critical || (row.totalFloat !== undefined && row.totalFloat <= 0)) ? (
+                        <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.65rem' }}>CP</span>
+                      ) : ''}
+                    </td>
+
+                    {/* Gantt Timeline Cells */}
+                    {/* Gantt Timeline Cells */}
+                    {dateColumns.map((col, i) => {
+                      const isCurrentPeriod = today >= col.start && today <= col.end;
+                      const cellBg = isCurrentPeriod ? 'rgba(64, 224, 208, 0.05)' : 'transparent';
+
+                      // Render the continuous bar container ONLY in the first cell
+                      // But we must render the TD for every cell to maintain the grid
+
+                      const content = (() => {
+                        if (i === 0 && row.startDate && row.endDate) {
+                          const itemStart = new Date(row.startDate);
+                          const itemEnd = new Date(row.endDate);
+                          const timelineStart = dateColumns[0].start;
+                          const timelineEnd = dateColumns[dateColumns.length - 1].end;
+                          const totalDuration = timelineEnd.getTime() - timelineStart.getTime();
+
+                          // Check overlap with timeline
+                          if (itemEnd >= timelineStart && itemStart <= timelineEnd) {
+                            const startOffset = Math.max(0, itemStart.getTime() - timelineStart.getTime());
+                            const leftPct = (startOffset / totalDuration) * 100;
+
+                            const effectiveEnd = Math.min(itemEnd.getTime(), timelineEnd.getTime());
+                            const effectiveStart = Math.max(itemStart.getTime(), timelineStart.getTime());
+                            const widthPct = ((effectiveEnd - effectiveStart) / totalDuration) * 100;
+
+                            const isMilestone = row.is_milestone || row.isMilestone;
+
+                            const getProgressColor = (pct: number) => {
+                              if (pct >= 100) return '#22c55e';
+                              if (pct >= 75) return '#22c55e';
+                              if (pct >= 50) return '#eab308';
+                              if (pct >= 25) return '#f97316';
+                              return '#ef4444';
+                            };
+                            const progressColor = getProgressColor(row.percentComplete || 0);
+
+                            return (
+                              <div
+                                className="gantt-bar-segment"
+                                data-id={row.id}
+                                title={`${row.name}${isMilestone ? ' (Milestone)' : ''}\n${row.startDate} - ${row.endDate}\nProgress: ${row.percentComplete}%\nTotal Float: ${row.totalFloat ?? '-'} days${row.taskEfficiency ? `\nEfficiency: ${Math.round(row.taskEfficiency)}%` : ''}`}
+                                style={{
+                                  position: 'absolute',
+                                  // width calculation: parent is 1 cell width. We need width relative to (cellWidth * numCols).
+                                  // widthPct is 0-100 of TOTAL timeline.
+                                  // leftPct is 0-100 of TOTAL timeline.
+                                  // So pixel width = widthPct/100 * (numCols * colWidth).
+                                  // In percentage relative to THIS 1st cell: width = (numCols * 100%) * (widthPct/100) = numCols * widthPct
+                                  width: `calc(${dateColumns.length * 100}% * ${widthPct / 100})`,
+                                  left: `calc(${dateColumns.length * 100}% * ${leftPct / 100})`,
+                                  height: '18px',
+                                  top: '6px',
+                                  background: isMilestone ? 'transparent' : '#333',
+                                  borderRadius: '3px',
+                                  zIndex: 5,
+                                  border: (row.isCritical || row.is_critical) ? '2px solid #ef4444' : 'none',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'flex-start',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                  pointerEvents: 'auto' // Ensure tooltips work
+                                }}
+                              >
+                                {/* Progress Fill */}
+                                {!isMilestone && (
+                                  <div style={{
+                                    width: `${row.percentComplete || 0}%`,
+                                    height: '100%',
+                                    background: progressColor,
+                                    borderRadius: '3px',
+                                    transition: 'width 0.3s'
+                                  }} />
+                                )}
+
+                                {/* Milestone Marker */}
+                                {isMilestone && (
+                                  <div style={{
+                                    width: '4px',
+                                    height: '100%',
+                                    background: '#ef4444',
+                                    borderRadius: '0',
+                                    marginLeft: '-2px'
+                                  }} />
+                                )}
+
+                                {/* Label */}
+                                <span style={{
+                                  marginLeft: isMilestone ? '8px' : 'calc(100% + 8px)',
+                                  whiteSpace: 'nowrap',
+                                  fontSize: '0.65rem',
+                                  color: '#aaa',
+                                  position: 'absolute',
+                                  left: isMilestone ? '0' : '0'
+                                }}>
+                                  {row.name}
+                                </span>
+                              </div>
+                            );
+                          }
+                        }
+                        return null;
+                      })();
+
+                      return (
+                        <td key={i} style={{ borderLeft: '1px solid #222', background: cellBg, position: 'relative', padding: 0, overflow: i === 0 ? 'visible' : 'hidden' }}>
+                          {content}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+              {paddingBottom > 0 && (
+                <tr style={{ height: `${paddingBottom}px` }}>
+                  <td colSpan={100} style={{ padding: 0, border: 'none' }}></td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

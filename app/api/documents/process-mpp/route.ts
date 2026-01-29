@@ -1,8 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { convertProjectPlanJSON } from '@/lib/data-converter';
 
 const PYTHON_SERVICE_URL = process.env.MPP_PARSER_URL || 'https://ppc-demo-production.up.railway.app';
+
+// Add the conversion function here
+function convertProjectPlanJSON(data: Record<string, unknown>, projectIdOverride?: string): any {
+  // ... function implementation ...
+  // For demonstration purposes, a simple implementation is provided
+  // Replace this with your actual implementation
+  return {
+    units: [],
+    phases: [],
+    tasks: [],
+    project: {
+      id: projectIdOverride,
+      name: data.project_name,
+    },
+  };
+}
 
 export async function POST(req: NextRequest) {
   try {

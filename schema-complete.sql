@@ -1500,6 +1500,86 @@ CREATE TRIGGER trigger_update_updated_at_employees
   EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================================
+-- VIEWS
+-- ============================================================================
+
+-- View: v_unified_wbs
+
+CREATE OR REPLACE VIEW v_unified_wbs AS
+WITH RECURSIVE node_hierarchy AS (
+    SELECT 
+        id,
+        name,
+        node_type,
+        parent_id,
+        id AS root_id,
+        name AS root_name,
+        1 AS level,
+        ARRAY[id] AS path,
+        ARRAY[name] AS path_names
+    FROM hierarchy_nodes
+    WHERE parent_id IS NULL
+
+    UNION ALL
+
+    SELECT 
+        n.id,
+        n.name,
+        n.node_type,
+        n.parent_id,
+        nh.root_id,
+        nh.root_name,
+        nh.level + 1,
+        nh.path || n.id,
+        nh.path_names || n.name
+    FROM hierarchy_nodes n
+    INNER JOIN node_hierarchy nh ON nh.id = n.parent_id
+)
+SELECT 
+    nh.root_id AS portfolio_id,
+    nh.root_name AS portfolio_name,
+    nh.id AS node_id,
+    nh.name AS node_name,
+    nh.node_type,
+    nh.level AS node_level,
+    nh.path AS node_path,
+    nh.path_names AS node_path_names,
+    p.id AS project_id,
+    p.name AS project_name,
+    ph.id AS phase_id,
+    ph.name AS phase_name,
+    t.id AS task_id,
+    t.name AS task_name,
+    t.wbs_code AS task_wbs_code
+FROM node_hierarchy nh
+LEFT JOIN projects p ON nh.node_type = 'unit' AND p.unit_id = nh.id
+LEFT JOIN phases ph ON ph.project_id = p.id
+LEFT JOIN tasks t ON t.phase_id = ph.id;
+
+-- View: v_project_financials
+
+CREATE OR REPLACE VIEW v_project_financials AS
+SELECT 
+    p.id AS project_id,
+    p.name AS project_name,
+    p.baseline_budget,
+    p.actual_budget,
+    p.baseline_cost,
+    p.actual_cost,
+    p.remaining_cost,
+    p.baseline_hours,
+    p.actual_hours,
+    p.remaining_hours,
+    (p.actual_budget - p.actual_cost) AS gross_profit,
+    CASE 
+        WHEN p.actual_budget > 0 THEN (p.actual_budget - p.actual_cost) / p.actual_budget 
+        ELSE 0 
+    END AS gross_margin,
+    p.cpi,
+    p.spi
+FROM projects p;
+
+-- ============================================================================
 -- MIGRATION NOTES
 -- ============================================================================
 -- 

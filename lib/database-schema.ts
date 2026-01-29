@@ -719,7 +719,6 @@ export interface DBSnapshot {
   updatedAt: string;
 }
 
-
 // ============================================================================
 // CHANGE CONTROL (REQUESTS + IMPACTS)
 // ============================================================================
@@ -1040,9 +1039,49 @@ export interface UnifiedData {
   resourceHeatmap: ResourceHeatmapView;
   sCurve: SCurveView;
 
+  // New database views
+  vUnifiedWBS: VUnifiedWBS[];
+  vProjectFinancials: VProjectFinancials[];
+
   // Metadata
   lastUpdated: string;
   dataVersion: string;
+}
+
+// New database views
+export interface VUnifiedWBS {
+  portfolio_id: string;
+  portfolio_name: string;
+  node_id: string;
+  node_name: string;
+  node_type: string;
+  node_level: number;
+  node_path: string[];
+  node_path_names: string[];
+  project_id: string;
+  project_name: string;
+  phase_id: string;
+  phase_name: string;
+  task_id: string;
+  task_name: string;
+  task_wbs_code: string;
+}
+
+export interface VProjectFinancials {
+  project_id: string;
+  project_name: string;
+  baseline_budget: number;
+  actual_budget: number;
+  baseline_cost: number;
+  actual_cost: number;
+  remaining_cost: number;
+  baseline_hours: number;
+  actual_hours: number;
+  remaining_hours: number;
+  gross_profit: number;
+  gross_margin: number;
+  cpi: number;
+  spi: number;
 }
 
 // ============================================================================
@@ -1216,6 +1255,8 @@ export function createEmptyUnifiedData(): UnifiedData {
     laborBreakdown: { weeks: [], byWorker: [], byPhase: [], byTask: [] },
     resourceHeatmap: { resources: [], weeks: [], data: [] },
     sCurve: { dates: [], planned: [], actual: [], forecast: [] },
+    vUnifiedWBS: [],
+    vProjectFinancials: [],
     lastUpdated: getCurrentTimestamp(),
     dataVersion: '2.0.0',
   };
