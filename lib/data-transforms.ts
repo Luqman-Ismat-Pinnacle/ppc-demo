@@ -1116,6 +1116,23 @@ export function buildWBSData(data: Partial<SampleData>): { items: any[] } {
       const allProjectTasks = maps.tasksByProject.get(projectId) || [];
       const isUnifiedHierarchy = allProjectTasks.some((t: any) => t.outlineLevel > 0 || t.parentTaskId);
 
+      // DEBUG: Log the raw MPP parser data
+      console.log('=== MPP PARSER DATA DEBUG ===');
+      console.log('Project ID:', projectId);
+      console.log('All Project Tasks Count:', allProjectTasks.length);
+      console.log('Is Unified Hierarchy:', isUnifiedHierarchy);
+      console.log('Sample Raw Tasks:', allProjectTasks.slice(0, 10).map(t => ({
+        id: t.id,
+        name: t.name,
+        outlineLevel: t.outlineLevel,
+        outline_level: t.outline_level,
+        parentTaskId: t.parentTaskId,
+        parent_id: t.parent_id,
+        isSummary: t.isSummary,
+        is_summary: t.is_summary
+      })));
+      console.log('=== END MPP PARSER DEBUG ===');
+
       if (isUnifiedHierarchy) {
         // Sort tasks by outline level to maintain proper hierarchy order
         // The parser output array order is usually correct top-down, but we'll ensure proper ordering
